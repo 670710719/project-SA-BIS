@@ -1,111 +1,121 @@
-:root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
-
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 body {
   margin: 0;
+  background: #0c382b;
+  color: #1e293b;
+  font-family: "Leelawadee UI", Tahoma, sans-serif;
+  @apply antialiased;
 }
 
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
+.login-page {
+  width: 100%;
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+  background: linear-gradient(108deg, #064b2d 0%, #1b504d 100%);
+}
+
+.login-header {
+  gap: 10px;
+  padding: 14px 10px;
+  transform-origin: top left;
+  zoom: 2;
+}
+
+.login-logo {
+  width: 21px;
+  padding: 3px 2px;
+  font-size: 8px;
+  line-height: 11px;
   text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
 }
 
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
+.login-brand {
+  font-size: 8px;
+  line-height: 11px;
 }
 
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
+.login-brand p {
   margin: 0;
 }
 
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
+.login-brand p:last-child {
+  color: #d1d5db;
+  font-size: 7px;
 }
 
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+.login-center {
+  transform: translateY(-20px) scale(2);
+}
+
+.login-card {
+  width: 152px;
+  height: 162px;
+  box-sizing: border-box;
+  padding: 30px 28px 31px;
+  background: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.24);
+}
+
+.login-card h1 {
+  margin: 0 0 16px;
+  font-size: 14px;
+  line-height: 17px;
+  letter-spacing: 0;
+  color: #0c382b;
+}
+
+.login-input {
+  display: block;
+  height: 20px;
+  box-sizing: border-box;
+  padding: 2px 6px;
+  font-size: 8px;
+  line-height: 14px;
+  background: #ffffff;
+  font-family: inherit;
+  border-radius: 3px;
+}
+
+.login-input+.login-input {
+  margin-top: 3px;
+}
+
+.login-submit {
+  height: 21px;
+  margin-top: 4px;
+  padding: 2px 6px;
+  font-size: 8px;
+  line-height: 15px;
+  color: #ffffff;
+  font-family: inherit;
+  border-radius: 3px;
+}
+
+.login-footer {
+  height: 0;
+}
+
+@media (max-width: 700px) {
+  .login-header {
+    zoom: 1;
+  }
+
+  .login-center {
+    transform: translateY(-20px);
+  }
 }
