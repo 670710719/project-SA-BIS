@@ -12,7 +12,7 @@ function Login() {
   const location = useLocation();
   const { login } = useAuth();
 
-  const from = location.state?.from || '/';
+  const from = location.state?.from || '/home-menu';
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -23,7 +23,10 @@ function Login() {
       await login(username, password);
       navigate(from, { replace: true });
     } catch (err) {
-      setError(err.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+      setError({
+        field: err.field || null,
+        message: err.message || 'เข้าสู่ระบบไม่สำเร็จ',
+      });
       setStatus('typing');
     }
   }
@@ -36,8 +39,8 @@ function Login() {
           CDG
         </div>
         <div className="login-brand leading-tight">
-          <p className="font-medium text-white">ระบบบันทึกเวลา และการเข้าทำงาน</p>
-          <p className="text-white">CDG Group</p>
+          <p className="font-medium text-white">ระบบการประเมินผลการทำงาน</p>
+          
         </div>
       </div>
 
@@ -49,30 +52,52 @@ function Login() {
           </h1>
 
           <form onSubmit={handleSubmit} className="login-form">
-            <div>
+            <div className="login-field">
+              <label htmlFor="username">ชื่อผู้ใช้</label>
               <input
+                id="username"
                 type="text"
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="ชื่อผู้ใช้"
+                onChange={(e) => {
+                  setUsername(e.target.value);
+                  setError(null);
+                }}
+                placeholder="กรอกชื่อผู้ใช้"
+                autoComplete="username"
                 required
+                aria-invalid={error?.field === 'username'}
+                aria-describedby={error?.field === 'username' ? 'username-error' : undefined}
                 className="login-input w-full rounded border border-gray-200 bg-gray-50 text-gray-800 placeholder-gray-400 focus:bg-white focus:border-blue-500 focus:outline-none transition-all"
               />
+              {error?.field === 'username' && (
+                <p id="username-error" className="login-error">{error.message}</p>
+              )}
             </div>
 
-            <div>
+            <div className="login-field">
+              <label htmlFor="password">รหัสผ่าน</label>
               <input
+                id="password"
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="รหัสผ่าน"
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setError(null);
+                }}
+                placeholder="กรอกรหัสผ่าน"
+                autoComplete="current-password"
                 required
+                aria-invalid={error?.field === 'password'}
+                aria-describedby={error?.field === 'password' ? 'password-error' : undefined}
                 className="login-input w-full rounded border border-gray-200 bg-gray-50 text-gray-800 placeholder-gray-400 focus:bg-white focus:border-blue-500 focus:outline-none transition-all"
               />
+              {error?.field === 'password' && (
+                <p id="password-error" className="login-error">{error.message}</p>
+              )}
             </div>
 
-            {error && (
-              <p className="text-xs text-red-600 text-center pt-1">{error}</p>
+            {error && !error.field && (
+              <p className="login-error login-error-general">{error.message}</p>
             )}
 
             <button
@@ -80,7 +105,7 @@ function Login() {
               disabled={status === 'submitting'}
               className="login-submit w-full rounded bg-[#0c382b] font-medium text-white hover:bg-[#08281f] disabled:bg-gray-400 transition-colors"
             >
-              {status === 'submitting' ? 'กำลังบันทึก...' : 'ยืนยัน'}
+              {status === 'submitting' ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
             </button>
           </form>
         </div>
