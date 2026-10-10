@@ -43,16 +43,18 @@ body {
 }
 
 .login-brand {
+  color: #ffffff;
   font-size: 8px;
   line-height: 11px;
 }
 
 .login-brand p {
   margin: 0;
+  color: #ffffff;
 }
 
 .login-brand p:last-child {
-  color: #d1d5db;
+  color: #ffffff;
   font-size: 7px;
 }
 
@@ -91,8 +93,10 @@ body {
   border-radius: 3px;
 }
 
-.login-input+.login-input {
-  margin-top: 3px;
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
 }
 
 .login-submit {
@@ -103,7 +107,11 @@ body {
   line-height: 15px;
   color: #ffffff;
   font-family: inherit;
+  border: none;
+  outline: none;
+  appearance: none;
   border-radius: 3px;
+  cursor: pointer;
 }
 
 .login-footer {

@@ -36,8 +36,8 @@ function Login() {
           CDG
         </div>
         <div className="login-brand leading-tight">
-          <p className="font-medium">ระบบบันทึกเวลา และการเข้าทำงาน</p>
-          <p className="text-gray-300">CDG Group</p>
+          <p className="font-medium text-white">ระบบบันทึกเวลา และการเข้าทำงาน</p>
+          <p className="text-white">CDG Group</p>
         </div>
       </div>
 
@@ -48,7 +48,7 @@ function Login() {
             เข้าสู่ระบบ
           </h1>
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} className="login-form">
             <div>
               <input
                 type="text"
