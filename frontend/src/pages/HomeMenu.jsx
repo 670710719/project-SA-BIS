@@ -6,12 +6,28 @@ function HomeMenu() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [showAssessmentAlert, setShowAssessmentAlert] = useState(true);
   const displayName = user?.name || user?.username || 'ผู้ใช้งาน';
   const avatar = displayName.charAt(0);
+  const assessmentKey = `self-assessment:${user?.employeeId || user?.username || 'user'}:2568`;
+  let hasSubmittedAssessment = false;
+  let assessmentStatusError = false;
+
+  try {
+    const savedAssessment = localStorage.getItem(assessmentKey);
+    hasSubmittedAssessment = savedAssessment ? JSON.parse(savedAssessment).status === 'submitted' : false;
+  } catch {
+    hasSubmittedAssessment = false;
+    assessmentStatusError = true;
+  }
 
   function handleLogout() {
     logout();
     navigate('/login', { replace: true });
+  }
+
+  function goToSelfAssessment() {
+    navigate('/self-assessment');
   }
 
   return (
@@ -50,10 +66,10 @@ function HomeMenu() {
           </button>
           <nav className="home-navigation" aria-label="เมนูหลัก">
             <button type="button" className="active">⌂ หน้าหลัก</button>
-            <button type="button">▣ ประเมินตนเอง</button>
+            <button type="button" onClick={goToSelfAssessment}>▣ ประเมินตนเอง</button>
             <button type="button">✓ ผลการประเมิน</button>
             <button type="button">฿ ผลต่อเงินเดือน</button>
-            <button type="button">▤ ประวัติการประเมิน</button>
+            <button type="button" onClick={() => navigate('/assessment-history')}>▤ ประวัติการประเมิน</button>
           </nav>
           <button type="button" className="logout-button" onClick={handleLogout}>
             ↪ ออกจากระบบ
@@ -68,6 +84,11 @@ function HomeMenu() {
             </div>
             <span className="home-date">รอบประเมิน: ปี 2568</span>
           </div>
+          {assessmentStatusError && (
+            <p className="assessment-error" role="alert">
+              ไม่สามารถตรวจสอบสถานะการประเมินที่บันทึกไว้ได้
+            </p>
+          )}
 
           <div className="home-summary-grid">
             <article className="home-summary-card time-card">
@@ -104,6 +125,44 @@ function HomeMenu() {
           </div>
         </section>
       </div>
+
+      {showAssessmentAlert && !hasSubmittedAssessment && (
+        <div className="assessment-alert-backdrop">
+          <section
+            className="assessment-alert"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="assessment-alert-title"
+            aria-describedby="assessment-alert-description"
+          >
+            <button
+              type="button"
+              className="assessment-alert-close"
+              onClick={() => setShowAssessmentAlert(false)}
+              aria-label="ปิดการแจ้งเตือน"
+            >
+              ×
+            </button>
+            <span className="assessment-alert-icon" aria-hidden="true">!</span>
+            <h2 id="assessment-alert-title">กรุณาประเมินตนเอง</h2>
+            <p id="assessment-alert-description">
+              จำเป็นต้องประเมินตนเองก่อนดำเนินการต่อ
+            </p>
+            <div className="assessment-alert-actions">
+              <button type="button" className="assessment-alert-primary" onClick={goToSelfAssessment}>
+                ไปหน้าประเมินตนเอง
+              </button>
+              <button
+                type="button"
+                className="assessment-alert-secondary"
+                onClick={() => setShowAssessmentAlert(false)}
+              >
+                ปิด
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </main>
   );
 }
