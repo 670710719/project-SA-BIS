@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+
 
 function HomeMenu() {
   const { user, logout } = useAuth();
@@ -52,7 +53,10 @@ function HomeMenu() {
             <button type="button" className="active">⌂ หน้าหลัก</button>
             <button type="button">▣ ประเมินตนเอง</button>
             <button type="button">✓ ผลการประเมิน</button>
-            <button type="button">฿ ผลต่อเงินเดือน</button>
+            {/* ปุ่มเมนูที่พาไปหน้า /salary */}
+            <button type="button" onClick={() => navigate('/salary')}>
+              ฿ ผลต่อเงินเดือน
+            </button>
             <button type="button">▤ ประวัติการประเมิน</button>
           </nav>
           <button type="button" className="logout-button" onClick={handleLogout}>
@@ -97,7 +101,7 @@ function HomeMenu() {
               <div className="home-task"><span>เกรดผลการประเมิน</span><small>รอผู้จัดการอนุมัติ</small><b className="warning">รอดำเนินการ</b></div>
             </section>
             <section className="home-panel">
-              <div className="home-panel-title"><h2>ผลต่อการขึ้นเงินเดือน</h2><a href="#all-requests">ดูรายละเอียด</a></div>
+              <div className="home-panel-title"><h2>ผลต่อการขึ้นเงินเดือน</h2><Link to="/salary">ดูรายละเอียด</Link></div>
               <div className="home-request"><span>เกรด A · ผลงานโดดเด่น</span><small>ปรับเงินเดือนแนะนำ 6.00%</small><div><button>ดูเกณฑ์</button></div></div>
               <div className="home-request"><span>เกรด B · ผลงานดีตามคาดหวัง</span><small>ปรับเงินเดือนแนะนำ 3.00%</small><div><button>ดูเกณฑ์</button></div></div>
             </section>

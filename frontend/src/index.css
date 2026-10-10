@@ -557,6 +557,79 @@ body {
   background: #df6262;
 }
 
+.salary-content {
+  max-width: 1400px;
+}
+
+.salary-grade-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.salary-grade-card {
+  padding: 22px;
+  background: #ffffff;
+  border: 1px solid #e6ece9;
+  border-radius: 8px;
+  box-shadow: 0 3px 12px rgba(26, 59, 42, 0.05);
+}
+
+.salary-grade-label {
+  display: inline-block;
+  padding: 5px 10px;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  background: #2b8064;
+  border-radius: 4px;
+}
+
+.salary-grade-card h2 {
+  min-height: 42px;
+  margin: 16px 0 8px;
+  color: #223a2e;
+  font-size: 16px;
+}
+
+.salary-grade-card p {
+  margin: 0;
+  color: #718078;
+  font-size: 12px;
+}
+
+.salary-grade-card strong {
+  display: block;
+  margin-top: 12px;
+  color: #2a4636;
+  font-size: 30px;
+}
+
+.salary-example-note {
+  margin: 22px 0;
+  padding: 14px 16px;
+  color: #765a20;
+  font-size: 13px;
+  line-height: 1.6;
+  background: #fff5dc;
+  border-radius: 6px;
+}
+
+.salary-back-button {
+  padding: 10px 16px;
+  color: #ffffff;
+  font: inherit;
+  font-size: 13px;
+  background: #2b8064;
+  border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.salary-back-button:hover {
+  background: #1f684f;
+}
+
 .home-menu-options button {
   min-height: 38px;
   padding: 8px 12px;
@@ -660,6 +733,10 @@ body {
     grid-template-columns: 1fr;
   }
 
+  .salary-grade-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .home-stat-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -670,5 +747,11 @@ body {
 
   .login-center {
     transform: translateY(-20px);
+  }
+}
+
+@media (max-width: 420px) {
+  .salary-grade-grid {
+    grid-template-columns: 1fr;
   }
 }
