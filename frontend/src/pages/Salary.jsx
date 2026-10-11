@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ThemeToggle from '../components/ThemeToggle';
 import { useAuth } from '../auth/AuthContext';
 
 const salaryGrades = [
@@ -33,6 +34,7 @@ function Salary() {
           </div>
         </div>
         <div className="home-user">
+          <ThemeToggle />
           <span>{displayName}</span>
           <span className="home-avatar">{avatar}</span>
         </div>
@@ -55,7 +57,7 @@ function Salary() {
             aria-label={isSidebarCollapsed ? 'ขยายแถบเมนู' : 'หดแถบเมนู'}
             title={isSidebarCollapsed ? 'ขยายแถบเมนู' : 'หดแถบเมนู'}
           >
-            {isSidebarCollapsed ? '›' : '‹'}
+            <span className="sidebar-arrow" aria-hidden="true">{isSidebarCollapsed ? '›' : '‹'}</span>
           </button>
           <nav className="home-navigation" aria-label="เมนูหลัก">
             <button type="button" onClick={() => navigate('/home-menu')}>⌂ หน้าหลัก</button>

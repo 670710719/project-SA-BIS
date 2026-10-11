@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
+import ThemeToggle from '../components/ThemeToggle';
 import { Link, useNavigate } from 'react-router-dom';
 
 
@@ -8,19 +9,50 @@ function HomeMenu() {
   const navigate = useNavigate();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [showAssessmentAlert, setShowAssessmentAlert] = useState(true);
+  const [assessmentRecord, setAssessmentRecord] = useState(null);
+  const [assessmentError, setAssessmentError] = useState('');
   const displayName = user?.name || user?.username || 'ผู้ใช้งาน';
   const avatar = displayName.charAt(0);
-  const assessmentKey = `self-assessment:${user?.employeeId || user?.username || 'user'}:2568`;
-  let hasSubmittedAssessment = false;
-  let assessmentStatusError = false;
+  const hasSubmittedAssessment = assessmentRecord?.assessment?.status === 'submitted';
 
-  try {
-    const savedAssessment = localStorage.getItem(assessmentKey);
-    hasSubmittedAssessment = savedAssessment ? JSON.parse(savedAssessment).status === 'submitted' : false;
-  } catch {
-    hasSubmittedAssessment = false;
-    assessmentStatusError = true;
-  }
+  useEffect(() => {
+    const employeeId = user?.employeeId || user?.username || 'user';
+    fetch(`/api/assessments?employeeId=${encodeURIComponent(employeeId)}&year=2568&type=employee`)
+      .then((response) => {
+        if (!response.ok) throw new Error('ไม่สามารถโหลดผลการประเมินได้');
+        return response.json();
+      })
+      .then((data) => {
+        setAssessmentRecord(data.assessments?.[0] || null);
+      })
+      .catch((error) => {
+        setAssessmentError(error.message);
+      });
+  }, [user?.employeeId, user?.username]);
+
+  const assessmentSummary = useMemo(() => {
+    const assessment = assessmentRecord?.assessment;
+    if (!assessment || assessment.status !== 'submitted') {
+      return { hasResult: false, goalsAverage: '-', competencyAverage: '-', status: 'ยังไม่ได้ส่งแบบประเมิน' };
+    }
+
+    const average = (scores) => scores.length
+      ? (scores.reduce((total, score) => total + score, 0) / scores.length).toFixed(2)
+      : '-';
+    const goalScores = (assessment.goals || [])
+      .map(({ score }) => Number(score))
+      .filter(Boolean);
+    const competencyScores = Object.values(assessment.ratings || {})
+      .map(({ score }) => Number(score))
+      .filter(Boolean);
+
+    return {
+      hasResult: goalScores.length > 0 || competencyScores.length > 0,
+      goalsAverage: average(goalScores),
+      competencyAverage: average(competencyScores),
+      status: assessmentRecord.status === 'approved' ? 'อนุมัติแล้ว' : 'รอผู้จัดการอนุมัติ',
+    };
+  }, [assessmentRecord]);
 
   function handleLogout() {
     logout();
@@ -41,6 +73,7 @@ function HomeMenu() {
           </div>
         </div>
         <div className="home-user">
+          <ThemeToggle />
           <span>{displayName}</span>
           <span className="home-avatar">{avatar}</span>
         </div>
@@ -68,7 +101,7 @@ function HomeMenu() {
             aria-label={isSidebarCollapsed ? 'ขยายแถบเมนู' : 'หดแถบเมนู'}
             title={isSidebarCollapsed ? 'ขยายแถบเมนู' : 'หดแถบเมนู'}
           >
-            {isSidebarCollapsed ? '›' : '‹'}
+            <span className="sidebar-arrow" aria-hidden="true">{isSidebarCollapsed ? '›' : '‹'}</span>
           </button>
           <nav className="home-navigation" aria-label="เมนูหลัก">
             <button type="button" className="active">⌂ หน้าหลัก</button>
@@ -92,10 +125,8 @@ function HomeMenu() {
             </div>
             <span className="home-date">รอบประเมิน: ปี 2568</span>
           </div>
-          {assessmentStatusError && (
-            <p className="assessment-error" role="alert">
-              ไม่สามารถตรวจสอบสถานะการประเมินที่บันทึกไว้ได้
-            </p>
+          {assessmentError && (
+            <p className="assessment-error" role="alert">{assessmentError}</p>
           )}
 
           <div className="home-summary-grid">
@@ -106,24 +137,31 @@ function HomeMenu() {
             </article>
             <article className="home-summary-card status-card">
               <span>สถานะการประเมิน</span>
-              <strong>กำลังประเมิน</strong>
-              <small>ปิดรอบวันที่ 31 ธ.ค. 2568</small>
+              <strong>{assessmentSummary.status}</strong>
+              <small>{assessmentRecord ? 'ส่งแบบประเมินแล้ว' : 'ยังไม่มีแบบประเมินที่ส่ง'}</small>
             </article>
-          </div>
-
-          <div className="home-stat-grid">
-            <article><span>พนักงานทั้งหมด</span><strong>156</strong></article>
-            <article><span>ประเมินแล้ว</span><strong>142</strong></article>
-            <article><span>รอการประเมิน</span><strong>14</strong></article>
-            <article><span>รออนุมัติผล</span><strong>7</strong></article>
           </div>
 
           <div className="home-panels">
             <section className="home-panel">
-              <div className="home-panel-title"><h2>สรุปผลการประเมิน</h2><a href="#all-tasks">ดูทั้งหมด</a></div>
-              <div className="home-task"><span>ผลงานตามเป้าหมาย</span><small>คะแนนเฉลี่ย 4.25 / 5.00</small><b className="success">ดีมาก</b></div>
-              <div className="home-task"><span>ทักษะและพฤติกรรม</span><small>คะแนนเฉลี่ย 3.80 / 5.00</small><b>ดี</b></div>
-              <div className="home-task"><span>เกรดผลการประเมิน</span><small>รอผู้จัดการอนุมัติ</small><b className="warning">รอดำเนินการ</b></div>
+              <div className="home-panel-title"><h2>สรุปผลการประเมิน</h2></div>
+              <div className="home-task">
+                <span>ผลงานตามเป้าหมาย</span>
+                <small>{assessmentSummary.hasResult ? `คะแนนเฉลี่ย ${assessmentSummary.goalsAverage} / 5.00` : 'ยังไม่มีผลการประเมิน'}</small>
+                <b className={assessmentSummary.hasResult ? 'success' : ''}>{assessmentSummary.hasResult ? 'มีผลคะแนน' : 'รอดำเนินการ'}</b>
+              </div>
+              <div className="home-task">
+                <span>ทักษะและพฤติกรรม</span>
+                <small>{assessmentSummary.hasResult ? `คะแนนเฉลี่ย ${assessmentSummary.competencyAverage} / 5.00` : 'ยังไม่มีผลการประเมิน'}</small>
+                <b className={assessmentSummary.hasResult ? 'success' : ''}>{assessmentSummary.hasResult ? 'มีผลคะแนน' : 'รอดำเนินการ'}</b>
+              </div>
+              <div className="home-task">
+                <span>สถานะผลการประเมิน</span>
+                <small>{assessmentSummary.status}</small>
+                <b className={assessmentRecord?.status === 'approved' ? 'success' : 'warning'}>
+                  {assessmentRecord?.status === 'approved' ? 'เสร็จสิ้น' : 'รอดำเนินการ'}
+                </b>
+              </div>
             </section>
             <section className="home-panel">
               <div className="home-panel-title"><h2>ผลต่อการขึ้นเงินเดือน</h2><Link to="/salary">ดูรายละเอียด</Link></div>

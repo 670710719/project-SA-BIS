@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import ThemeToggle from '../components/ThemeToggle';
 
 function ManagerApprovals() {
   const { user, logout } = useAuth();
@@ -11,7 +12,7 @@ function ManagerApprovals() {
 
   useEffect(() => {
     let isMounted = true;
-    fetch(`/api/manager/assessments?manager=${encodeURIComponent(user?.username || 'Tob')}`)
+    fetch(`/api/manager/assessments?manager=${encodeURIComponent(user?.username || 'Tob')}&type=employee`)
       .then((response) => {
         if (!response.ok) throw new Error('ไม่สามารถโหลดผลการประเมินได้');
         return response.json();
@@ -61,6 +62,7 @@ function ManagerApprovals() {
           </div>
         </div>
         <div className="home-user">
+          <ThemeToggle />
           <span>{displayName}</span>
           <span className="home-avatar">{avatar}</span>
         </div>

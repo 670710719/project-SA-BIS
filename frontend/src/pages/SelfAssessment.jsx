@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ThemeToggle from '../components/ThemeToggle';
 import { useAuth } from '../auth/AuthContext';
 
 const evaluationYear = '2568';
@@ -65,26 +66,25 @@ function SelfAssessment() {
   const [isSubmitConfirmationOpen, setIsSubmitConfirmationOpen] = useState(false);
 
   useEffect(() => {
-    if (storedState.assessment.status !== 'submitted') return;
-
-    fetch('/api/assessments', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: `${user?.employeeId || user?.username || 'user'}:${evaluationYear}`,
-        employeeId: user?.employeeId || '',
-        employee: displayName,
-        manager: 'Tob',
-        year: evaluationYear,
-        submittedAt: storedState.assessment.submittedAt,
-        assessment: storedState.assessment,
-      }),
-    })
+    const employeeId = user?.employeeId || user?.username || 'user';
+    fetch(`/api/assessments?employeeId=${encodeURIComponent(employeeId)}&year=${evaluationYear}&type=employee`)
       .then((response) => {
-        if (!response.ok) throw new Error('ไม่สามารถส่งแบบประเมินเดิมให้หัวหน้าได้');
+        if (!response.ok) throw new Error('ไม่สามารถตรวจสอบแบบประเมินจากเซิร์ฟเวอร์ได้');
+        return response.json();
+      })
+      .then((data) => {
+        const serverAssessment = data.assessments?.[0]?.assessment;
+        if (serverAssessment) {
+          setAssessment({ ...createEmptyAssessment(), ...serverAssessment });
+          return;
+        }
+        if (storedState.assessment.status === 'submitted') {
+          localStorage.removeItem(storageKey);
+          setAssessment(createEmptyAssessment());
+        }
       })
       .catch((error) => setStorageError(error.message));
-  }, [displayName, storedState.assessment, user?.employeeId, user?.username]);
+  }, [displayName, storageKey, storedState.assessment.status, user?.employeeId, user?.username]);
 
   const averageScore = useMemo(() => {
     const scores = [
@@ -134,6 +134,7 @@ function SelfAssessment() {
             manager: 'Tob',
             year: evaluationYear,
             submittedAt: updatedAssessment.submittedAt,
+            assessmentType: 'employee',
             assessment: updatedAssessment,
           }),
         });
@@ -182,6 +183,7 @@ function SelfAssessment() {
           </div>
         </div>
         <div className="home-user">
+          <ThemeToggle />
           <span>{displayName}</span>
           <span className="home-avatar">{displayName.charAt(0)}</span>
         </div>

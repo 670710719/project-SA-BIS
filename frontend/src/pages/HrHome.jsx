@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import ThemeToggle from '../components/ThemeToggle';
 
 function HrHome() {
   const { user, logout } = useAuth();
@@ -24,6 +25,7 @@ function HrHome() {
           </div>
         </div>
         <div className="home-user">
+          <ThemeToggle />
           <span>{displayName}</span>
           <span className="home-avatar">{avatar}</span>
         </div>
@@ -45,7 +47,7 @@ function HrHome() {
             aria-label={isSidebarCollapsed ? 'ขยายแถบเมนู' : 'หดแถบเมนู'}
             title={isSidebarCollapsed ? 'ขยายแถบเมนู' : 'หดแถบเมนู'}
           >
-            {isSidebarCollapsed ? '›' : '‹'}
+            <span className="sidebar-arrow" aria-hidden="true">{isSidebarCollapsed ? '›' : '‹'}</span>
           </button>
           <nav className="home-navigation" aria-label="เมนูฝ่ายทรัพยากรบุคคล">
             <button type="button" className="active">⌂ หน้าหลัก</button>

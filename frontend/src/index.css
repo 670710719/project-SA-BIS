@@ -864,6 +864,15 @@ body {
   border: 1px solid #155744;
 }
 
+.assessment-success {
+  margin: 12px 0;
+  padding: 10px 12px;
+  color: #155744;
+  background: #edf8f1;
+  border: 1px solid #b8dec5;
+  border-radius: 5px;
+}
+
 .assessment-form-actions button:hover,
 .assessment-dialog-actions button:hover {
   filter: brightness(0.96);
@@ -1033,6 +1042,25 @@ body {
   font-size: 12px;
 }
 
+.theme-toggle {
+  width: 32px;
+  height: 32px;
+  margin-right: 4px;
+  padding: 0;
+  color: #315b44;
+  font: inherit;
+  font-size: 20px;
+  line-height: 1;
+  background: #edf3ef;
+  border: 1px solid #d5e1da;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.theme-toggle:hover {
+  background: #dcebe2;
+}
+
 .home-avatar {
   width: 36px;
   height: 36px;
@@ -1080,8 +1108,8 @@ body {
 
 .sidebar-toggle {
   position: absolute;
-  top: 24px;
-  right: -13px;
+  top: 8px;
+  right: 16px;
   z-index: 1;
   width: 26px;
   height: 26px;
@@ -1090,20 +1118,141 @@ body {
   font: inherit;
   font-size: 22px;
   line-height: 20px;
-  background: #2b8064;
-  border: 2px solid #f3f6f5;
-  border-radius: 50%;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+  box-shadow: none;
+}
+
+.sidebar-arrow {
+  display: inline-block;
+  width: 18px;
+  font-size: 25px;
+  line-height: 24px;
 }
 
 .sidebar-toggle:hover {
-  background: #368f70;
+  background: transparent;
 }
 
 .sidebar-toggle:focus-visible {
   outline: 3px solid rgba(43, 128, 100, 0.45);
   outline-offset: 2px;
+}
+
+:root[data-theme='dark'] body {
+  background: #0f1b16;
+  color: #e4eee8;
+}
+
+:root[data-theme='dark'] .home-menu-page,
+:root[data-theme='dark'] .self-assessment-page,
+:root[data-theme='dark'] .assessment-history-page {
+  background: #0f1b16;
+}
+
+:root[data-theme='dark'] .home-topbar {
+  color: #e4eee8;
+  background: #172a21;
+  border-bottom-color: #294237;
+}
+
+:root[data-theme='dark'] .home-brand {
+  color: #dcebe2;
+}
+
+:root[data-theme='dark'] .home-brand small,
+:root[data-theme='dark'] .home-user,
+:root[data-theme='dark'] .home-heading p,
+:root[data-theme='dark'] .home-date,
+:root[data-theme='dark'] .self-assessment-content p,
+:root[data-theme='dark'] .assessment-section-heading p {
+  color: #a8bbb0;
+}
+
+:root[data-theme='dark'] .theme-toggle {
+  color: #ffe7a3;
+  background: #263d31;
+  border-color: #3a5a47;
+}
+
+:root[data-theme='dark'] .theme-toggle:hover {
+  background: #31513f;
+}
+
+:root[data-theme='dark'] .home-layout {
+  background: #0f1b16;
+}
+
+:root[data-theme='dark'] .home-content,
+:root[data-theme='dark'] .self-assessment-content,
+:root[data-theme='dark'] .assessment-history-content {
+  color: #e4eee8;
+}
+
+:root[data-theme='dark'] .home-summary-card,
+:root[data-theme='dark'] .home-stat-grid article,
+:root[data-theme='dark'] .home-panel,
+:root[data-theme='dark'] .assessment-employee-card,
+:root[data-theme='dark'] .assessment-section,
+:root[data-theme='dark'] .assessment-score-summary,
+:root[data-theme='dark'] .assessment-history-card,
+:root[data-theme='dark'] .assessment-history-empty {
+  color: #e4eee8;
+  background: #172a21;
+  border-color: #294237;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.18);
+}
+
+:root[data-theme='dark'] .home-summary-card span,
+:root[data-theme='dark'] .home-summary-card small,
+:root[data-theme='dark'] .home-stat-grid span,
+:root[data-theme='dark'] .assessment-employee-card span {
+  color: #a8bbb0;
+}
+
+:root[data-theme='dark'] .home-summary-card strong,
+:root[data-theme='dark'] .assessment-employee-card strong,
+:root[data-theme='dark'] .assessment-section-heading h2 {
+  color: #e4eee8;
+}
+
+:root[data-theme='dark'] .home-task,
+:root[data-theme='dark'] .home-request {
+  background: #20372b;
+}
+
+:root[data-theme='dark'] .assessment-goal,
+:root[data-theme='dark'] .assessment-competency {
+  border-color: #345141;
+}
+
+:root[data-theme='dark'] .assessment-goal legend {
+  color: #b9ddc5;
+}
+
+:root[data-theme='dark'] .assessment-field input,
+:root[data-theme='dark'] .assessment-field textarea,
+:root[data-theme='dark'] .assessment-field select,
+:root[data-theme='dark'] .self-assessment-back {
+  color: #e4eee8;
+  background: #20372b;
+  border-color: #456451;
+}
+
+:root[data-theme='dark'] .assessment-field input::placeholder,
+:root[data-theme='dark'] .assessment-field textarea::placeholder {
+  color: #8da497;
+}
+
+:root[data-theme='dark'] .self-assessment-back:hover {
+  background: #2b4837;
+}
+
+:root[data-theme='dark'] .assessment-alert {
+  color: #e4eee8;
+  background: #172a21;
 }
 
 .home-sidebar.collapsed .home-navigation button {

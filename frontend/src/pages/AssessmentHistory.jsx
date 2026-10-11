@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ThemeToggle from '../components/ThemeToggle';
 import { useAuth } from '../auth/AuthContext';
 
 const competencyNames = {
@@ -80,6 +81,7 @@ function AssessmentHistory() {
           </div>
         </div>
         <div className="home-user">
+          <ThemeToggle />
           <span>{displayName}</span>
           <span className="home-avatar">{displayName.charAt(0)}</span>
         </div>

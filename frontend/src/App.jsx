@@ -7,6 +7,7 @@ import HrHome from './pages/HrHome';
 import SelfAssessment from './pages/SelfAssessment';
 import AssessmentHistory from './pages/AssessmentHistory';
 import ManagerApprovals from './pages/ManagerApprovals';
+import ManagerAssessment from './pages/ManagerAssessment';
 import Salary from './pages/Salary';
 
 function App() {
@@ -23,6 +24,7 @@ function App() {
           <Route path="/self-assessment" element={<SelfAssessment />} />
           <Route path="/assessment-history" element={<AssessmentHistory />} />
           <Route path="/manager-approvals" element={<ManagerApprovals />} />
+          <Route path="/manager-assessment" element={<ManagerAssessment />} />
           {/* Route ของหน้าเงินเดือน: เปิดได้ที่ /salary */}
           <Route path="/salary" element={<Salary />} />
           <Route path="/dashboard" element={<Navigate to="/home-menu" replace />} />

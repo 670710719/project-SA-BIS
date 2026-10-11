@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import ThemeToggle from '../components/ThemeToggle';
 
 function ManagerHome() {
   const { user, logout } = useAuth();
@@ -8,12 +9,14 @@ function ManagerHome() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [submissions, setSubmissions] = useState([]);
   const [submissionError, setSubmissionError] = useState('');
+  const [teamEmployees, setTeamEmployees] = useState([]);
+  const [employeeError, setEmployeeError] = useState('');
   const displayName = user?.name || user?.username || 'หัวหน้าแผนก';
   const avatar = displayName.charAt(0);
 
   useEffect(() => {
     let isMounted = true;
-    fetch('/api/manager/assessments?manager=Tob')
+    fetch('/api/manager/assessments?manager=Tob&type=employee')
       .then((response) => {
         if (!response.ok) throw new Error('ไม่สามารถโหลดแบบประเมินของทีมได้');
         return response.json();
@@ -27,10 +30,61 @@ function ManagerHome() {
     return () => { isMounted = false; };
   }, []);
 
+  useEffect(() => {
+  let isMounted = true;
+  fetch('/api/employees')
+    .then((response) => {
+      if (!response.ok) throw new Error('ไม่สามารถโหลดข้อมูลลูกทีมได้');
+      return response.json();
+    })
+    .then((data) => {
+      if (isMounted) setTeamEmployees(data.employees || []);
+    })
+    .catch((error) => {
+      if (isMounted) setEmployeeError(error.message);
+    });
+  return () => { isMounted = false; };
+  }, []);
+
   function handleLogout() {
     logout();
     navigate('/login', { replace: true });
   }
+
+  const teamSize = teamEmployees.length;
+  const evaluatedEmployeeIds = new Set(
+    submissions
+      .filter(({ status, assessment }) => (
+        status === 'approved' || assessment?.status === 'submitted'
+      ))
+      .map(({ employeeId }) => employeeId)
+      .filter(Boolean),
+  );
+  const evaluatedCount = Math.min(evaluatedEmployeeIds.size, teamSize);
+  const pendingEvaluationCount = Math.max(teamSize - evaluatedCount, 0);
+  const teamSummary = useMemo(() => {
+    const assessments = submissions
+      .filter(({ status, assessment }) => status === 'approved' || assessment?.status === 'submitted')
+      .map(({ assessment }) => assessment)
+      .filter(Boolean);
+    const goalScores = assessments.flatMap(({ goals = [] }) => (
+      goals.map(({ score }) => Number(score)).filter(Boolean)
+    ));
+    const competencyScores = assessments.flatMap(({ ratings = {} }) => (
+      Object.values(ratings).map(({ score }) => Number(score)).filter(Boolean)
+    ));
+    const allScores = [...goalScores, ...competencyScores];
+    const average = (scores) => scores.length
+      ? (scores.reduce((total, score) => total + score, 0) / scores.length).toFixed(2)
+      : '-';
+
+    return {
+      hasResults: assessments.length > 0 && allScores.length > 0,
+      average: average(allScores),
+      goalsAverage: average(goalScores),
+      competencyAverage: average(competencyScores),
+    };
+  }, [submissions]);
 
   return (
     <main className="home-menu-page manager-home-page">
@@ -42,6 +96,7 @@ function ManagerHome() {
           </div>
         </div>
         <div className="home-user">
+          <ThemeToggle />
           <span>{displayName}</span>
           <span className="home-avatar">{avatar}</span>
         </div>
@@ -63,11 +118,11 @@ function ManagerHome() {
             aria-label={isSidebarCollapsed ? 'ขยายแถบเมนู' : 'หดแถบเมนู'}
             title={isSidebarCollapsed ? 'ขยายแถบเมนู' : 'หดแถบเมนู'}
           >
-            {isSidebarCollapsed ? '›' : '‹'}
+            <span className="sidebar-arrow" aria-hidden="true">{isSidebarCollapsed ? '›' : '‹'}</span>
           </button>
           <nav className="home-navigation" aria-label="เมนูหัวหน้าแผนก">
             <button type="button" className="active">⌂ หน้าหลัก</button>
-            <button type="button">▣ ประเมินลูกทีม</button>
+            <button type="button" onClick={() => navigate('/manager-assessment')}>▣ ประเมินลูกทีม</button>
             <button type="button" onClick={() => navigate('/manager-approvals')}>✓ อนุมัติผลการประเมิน</button>
             <button type="button">▤ รายงานทีม</button>
           </nav>
@@ -99,9 +154,9 @@ function ManagerHome() {
           </div>
 
           <div className="home-stat-grid">
-            <article><span>พนักงานในทีม</span><strong>24</strong></article>
-            <article><span>ประเมินแล้ว</span><strong>18</strong></article>
-            <article><span>รอประเมิน</span><strong>6</strong></article>
+            <article><span>พนักงานในทีม</span><strong>{teamSize}</strong></article>
+            <article><span>ประเมินแล้ว</span><strong>{evaluatedCount}</strong></article>
+            <article><span>รอประเมิน</span><strong>{pendingEvaluationCount}</strong></article>
             <article><span>รออนุมัติ</span><strong>{submissions.length}</strong></article>
           </div>
 
@@ -109,6 +164,7 @@ function ManagerHome() {
             <section className="home-panel">
               <div className="home-panel-title"><h2>งานที่ต้องดำเนินการ</h2><a href="#manager-tasks">ดูทั้งหมด</a></div>
               {submissionError && <p className="assessment-error" role="alert">{submissionError}</p>}
+              {employeeError && <p className="assessment-error" role="alert">{employeeError}</p>}
               {submissions.length === 0 ? (
                 <div className="home-task"><span>อนุมัติผลการประเมิน</span><small>ยังไม่มีแบบประเมินที่พนักงานส่งเข้ามา</small><b>รอตรวจสอบ</b></div>
               ) : (
@@ -120,13 +176,39 @@ function ManagerHome() {
                   </div>
                 ))
               )}
-              <div className="home-task"><span>ติดตามการประเมินของทีม</span><small>พนักงาน 6 คนยังไม่ได้ส่งแบบประเมิน</small><b>ติดตาม</b></div>
-              <div className="home-task"><span>สรุปผลการประเมินทีม</span><small>คะแนนเฉลี่ยของทีม 4.12 / 5.00</small><b className="success">ดีมาก</b></div>
+              <div className="home-task"><span>ติดตามการประเมินของทีม</span><small>พนักงาน {pendingEvaluationCount} คนยังไม่ได้ส่งแบบประเมิน</small><b>ติดตาม</b></div>
+              <div className="home-task">
+                <span>สรุปผลการประเมินทีม</span>
+                <small>
+                  {teamSummary.hasResults
+                    ? `คะแนนเฉลี่ยของทีม ${teamSummary.average} / 5.00`
+                    : 'ยังไม่มีผลการประเมิน'}
+                </small>
+                <b className={teamSummary.hasResults ? 'success' : ''}>
+                  {teamSummary.hasResults ? 'มีผลประเมิน' : 'รอดำเนินการ'}
+                </b>
+              </div>
             </section>
             <section className="home-panel">
               <div className="home-panel-title"><h2>ภาพรวมทีม</h2><a href="#team-report">ดูรายงาน</a></div>
-              <div className="home-request"><span>ผลงานตามเป้าหมาย</span><small>ผ่านเกณฑ์ 20 จาก 24 คน</small><div><button type="button">ดูรายละเอียด</button></div></div>
-              <div className="home-request"><span>ทักษะและพฤติกรรม</span><small>คะแนนเฉลี่ย 3.95 / 5.00</small><div><button type="button">ดูรายละเอียด</button></div></div>
+              <div className="home-request">
+                <span>ผลงานตามเป้าหมาย</span>
+                <small>
+                  {teamSummary.hasResults
+                    ? `คะแนนเฉลี่ย ${teamSummary.goalsAverage} / 5.00`
+                    : 'ยังไม่มีผลการประเมิน'}
+                </small>
+                <div><button type="button">ดูรายละเอียด</button></div>
+              </div>
+              <div className="home-request">
+                <span>ทักษะและพฤติกรรม</span>
+                <small>
+                  {teamSummary.hasResults
+                    ? `คะแนนเฉลี่ย ${teamSummary.competencyAverage} / 5.00`
+                    : 'ยังไม่มีผลการประเมิน'}
+                </small>
+                <div><button type="button">ดูรายละเอียด</button></div>
+              </div>
             </section>
           </div>
         </section>
