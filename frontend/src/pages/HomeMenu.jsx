@@ -106,6 +106,7 @@ function HomeMenu() {
           <nav className="home-navigation" aria-label="เมนูหลัก">
             <button type="button" className="active">⌂ หน้าหลัก</button>
             <button type="button" onClick={goToSelfAssessment}>▣ ประเมินตนเอง</button>
+            <button type="button" onClick={() => navigate('/peer-assessment')}>♧ ประเมินเพื่อนร่วมงาน</button>
             <button type="button">✓ ผลการประเมิน</button>
             <button type="button" onClick={() => navigate('/salary')}>
               ฿ ผลต่อเงินเดือน

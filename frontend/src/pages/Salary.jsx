@@ -61,7 +61,8 @@ function Salary() {
           </button>
           <nav className="home-navigation" aria-label="เมนูหลัก">
             <button type="button" onClick={() => navigate('/home-menu')}>⌂ หน้าหลัก</button>
-            <button type="button">▣ ประเมินตนเอง</button>
+            <button type="button" onClick={() => navigate('/self-assessment')}>▣ ประเมินตนเอง</button>
+            <button type="button" onClick={() => navigate('/peer-assessment')}>♧ ประเมินเพื่อนร่วมงาน</button>
             <button type="button">✓ ผลการประเมิน</button>
             <button type="button" className="active" onClick={() => navigate('/salary')}>
               ฿ ผลต่อเงินเดือน

@@ -5,6 +5,7 @@ import HomeMenu from './pages/HomeMenu';
 import ManagerHome from './pages/ManagerHome';
 import HrHome from './pages/HrHome';
 import SelfAssessment from './pages/SelfAssessment';
+import PeerAssessment from './pages/PeerAssessment';
 import AssessmentHistory from './pages/AssessmentHistory';
 import ManagerApprovals from './pages/ManagerApprovals';
 import ManagerAssessment from './pages/ManagerAssessment';
@@ -23,6 +24,7 @@ function App() {
           <Route path="/manager-home" element={<ManagerHome />} />
           <Route path="/hr-home" element={<HrHome />} />
           <Route path="/self-assessment" element={<SelfAssessment />} />
+          <Route path="/peer-assessment" element={<PeerAssessment />} />
           <Route path="/assessment-history" element={<AssessmentHistory />} />
           <Route path="/manager-approvals" element={<ManagerApprovals />} />
           <Route path="/manager-assessment" element={<ManagerAssessment />} />
