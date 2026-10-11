@@ -15,6 +15,7 @@ import (
 type LoginRequest struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
+	Role     string `json:"role" binding:"required"`
 }
 
 type RegisterRequest struct {
@@ -27,6 +28,23 @@ type User struct {
 	Username   string `json:"username"`
 	Name       string `json:"name"`
 	EmployeeID string `json:"employeeId,omitempty"`
+	Role       string `json:"role"`
+}
+
+type Account struct {
+	Password string
+	Role     string
+}
+
+type AssessmentSubmission struct {
+	ID          string      `json:"id"`
+	EmployeeID  string      `json:"employeeId"`
+	Employee    string      `json:"employee"`
+	Manager     string      `json:"manager"`
+	Year        string      `json:"year"`
+	SubmittedAt string      `json:"submittedAt"`
+	Status      string      `json:"status"`
+	Assessment  interface{} `json:"assessment"`
 }
 
 type Employee struct {
@@ -67,15 +85,24 @@ func main() {
 	r := gin.Default()
 
 	r.Use(cors.Default())
-	users := map[string]string{"Ying": "1234"}
+	accounts := map[string]Account{
+		"Ying":  {Password: "1234", Role: "employee"},
+		"First": {Password: "HR@1234", Role: "hr"},
+		"Tob":   {Password: "Manager@1234", Role: "manager"},
+	}
 	for _, employee := range employees {
 		firstName := employee.Name
 		if fields := strings.Fields(employee.Name); len(fields) > 0 {
 			firstName = fields[0]
 		}
-		users[firstName] = fmt.Sprintf("CDG@%s", employee.ID[3:])
+		accounts[firstName] = Account{
+			Password: fmt.Sprintf("CDG@%s", employee.ID[3:]),
+			Role:     "employee",
+		}
 	}
 	var usersMu sync.RWMutex
+	submissions := make(map[string]AssessmentSubmission)
+	var submissionsMu sync.RWMutex
 
 	r.GET("/api/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
@@ -88,6 +115,59 @@ func main() {
 		})
 	})
 
+	r.POST("/api/assessments", func(c *gin.Context) {
+		var submission AssessmentSubmission
+		if err := c.ShouldBindJSON(&submission); err != nil ||
+			submission.Employee == "" || submission.Year == "" || submission.SubmittedAt == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "ข้อมูลแบบประเมินไม่ครบถ้วน"})
+			return
+		}
+
+		if submission.Manager == "" {
+			submission.Manager = "Tob"
+		}
+		if submission.ID == "" {
+			submission.ID = submission.EmployeeID + ":" + submission.Year
+		}
+		if submission.Status == "" {
+			submission.Status = "pending"
+		}
+
+		submissionsMu.Lock()
+		submissions[submission.ID] = submission
+		submissionsMu.Unlock()
+		c.JSON(http.StatusCreated, gin.H{"message": "ส่งแบบประเมินให้หัวหน้าเรียบร้อยแล้ว", "submission": submission})
+	})
+
+	r.GET("/api/manager/assessments", func(c *gin.Context) {
+		manager := c.Query("manager")
+		submissionsMu.RLock()
+		result := make([]AssessmentSubmission, 0)
+		for _, submission := range submissions {
+			if manager == "" || submission.Manager == manager {
+				result = append(result, submission)
+			}
+		}
+		submissionsMu.RUnlock()
+		c.JSON(http.StatusOK, gin.H{"count": len(result), "assessments": result})
+	})
+
+	r.POST("/api/manager/assessments/:id/approve", func(c *gin.Context) {
+		submissionsMu.Lock()
+		submission, exists := submissions[c.Param("id")]
+		if exists {
+			submission.Status = "approved"
+			submissions[submission.ID] = submission
+		}
+		submissionsMu.Unlock()
+
+		if !exists {
+			c.JSON(http.StatusNotFound, gin.H{"message": "ไม่พบแบบประเมินที่ต้องการอนุมัติ"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "อนุมัติผลการประเมินเรียบร้อยแล้ว", "submission": submission})
+	})
+
 	r.POST("/api/auth/login", func(c *gin.Context) {
 		var req LoginRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -96,11 +176,11 @@ func main() {
 		}
 
 		usersMu.RLock()
-		password, exists := users[req.Username]
+		account, exists := accounts[req.Username]
 		usersMu.RUnlock()
 
-		if exists && password == req.Password {
-			user := User{Username: req.Username, Name: req.Username}
+		if exists && account.Role == req.Role && account.Password == req.Password {
+			user := User{Username: req.Username, Name: req.Username, Role: account.Role}
 			for _, employee := range employees {
 				firstName := strings.Fields(employee.Name)[0]
 				if firstName == req.Username {
@@ -108,6 +188,7 @@ func main() {
 						Username:   firstName,
 						Name:       firstName,
 						EmployeeID: employee.ID,
+						Role:       account.Role,
 					}
 					break
 				}
@@ -121,7 +202,7 @@ func main() {
 			return
 		}
 
-		if !exists {
+		if !exists || (req.Role != "employee" && req.Role != "hr" && req.Role != "manager") {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"field":   "username",
 				"message": "ชื่อผู้ใช้ไม่ถูกต้อง",
@@ -149,12 +230,12 @@ func main() {
 
 		usersMu.Lock()
 		defer usersMu.Unlock()
-		if _, exists := users[req.Username]; exists {
+		if _, exists := accounts[req.Username]; exists {
 			c.JSON(http.StatusConflict, gin.H{"field": "username", "message": "ชื่อผู้ใช้นี้มีอยู่แล้ว"})
 			return
 		}
 
-		users[req.Username] = req.Password
+		accounts[req.Username] = Account{Password: req.Password, Role: "employee"}
 		c.JSON(http.StatusCreated, gin.H{"message": "สมัครสมาชิกสำเร็จ"})
 	})
 
