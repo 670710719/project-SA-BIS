@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
+import { calculateAssessmentScore, evaluationYear } from '../assessment/assessmentUtils';
 
 function ManagerTeamReport() {
   const { user, logout } = useAuth();
@@ -16,7 +17,7 @@ function ManagerTeamReport() {
   useEffect(() => {
     let isMounted = true;
     Promise.all([
-      fetch('/api/manager/assessments?manager=Tob&type=employee'),
+      fetch(`/api/manager/assessments?manager=${encodeURIComponent(user?.username || 'Tob')}&type=manager`),
       fetch('/api/employees'),
     ])
       .then(async ([assessmentResponse, employeeResponse]) => {
@@ -35,19 +36,15 @@ function ManagerTeamReport() {
         if (isMounted) setError(requestError.message);
       });
     return () => { isMounted = false; };
-  }, []);
+  }, [user?.username]);
 
   const report = useMemo(() => {
-    const evaluated = submissions.filter(({ status, assessment }) => (
-      status === 'approved' || assessment?.status === 'submitted'
+    const currentSubmissions = submissions.filter(({ year }) => year === evaluationYear);
+    const evaluated = currentSubmissions.filter(({ status, assessment }) => (
+      status === 'submitted' || status === 'approved' || assessment?.status === 'submitted'
     ));
-    const scores = evaluated.flatMap(({ assessment }) => [
-      ...(assessment?.goals || []).map(({ score }) => Number(score)).filter(Boolean),
-      ...Object.values(assessment?.ratings || {}).map(({ score }) => Number(score)).filter(Boolean),
-    ]);
-    const average = scores.length
-      ? (scores.reduce((total, score) => total + score, 0) / scores.length).toFixed(2)
-      : '-';
+    const scores = evaluated.map(({ assessment }) => Number(calculateAssessmentScore(assessment).overall)).filter(Number.isFinite);
+    const average = scores.length ? (scores.reduce((total, score) => total + score, 0) / scores.length).toFixed(2) : '-';
     const evaluatedIds = new Set(evaluated.map(({ employeeId }) => employeeId).filter(Boolean));
     const pending = Math.max(teamEmployees.length - evaluatedIds.size, 0);
     return {
@@ -109,7 +106,7 @@ function ManagerTeamReport() {
               <h1>รายงานความคืบหน้าการประเมินของทีม</h1>
               <p>สรุปผลการดำเนินงานและภาพรวมการประเมินของทีม</p>
             </div>
-            <span className="home-date">รอบประเมิน: ปี 2568</span>
+            <span className="home-date">รอบประเมิน: ปี {evaluationYear}</span>
           </div>
 
           {error && <p className="assessment-error" role="alert">{error}</p>}
@@ -132,8 +129,8 @@ function ManagerTeamReport() {
             </section>
             <section className="home-panel">
               <div className="home-panel-title"><h2>สถานะการดำเนินงาน</h2></div>
-              <div className="team-report-status-row"><span>ผลประเมินที่อนุมัติแล้ว</span><b className="success">{submissions.filter(({ status }) => status === 'approved').length}</b></div>
-              <div className="team-report-status-row"><span>รอหัวหน้าอนุมัติ</span><b className="warning">{submissions.filter(({ status }) => status !== 'approved').length}</b></div>
+              <div className="team-report-status-row"><span>ผลประเมินจากหัวหน้าที่ส่งแล้ว</span><b className="success">{submissions.filter(({ year, status }) => year === evaluationYear && (status === 'submitted' || status === 'approved')).length}</b></div>
+              <div className="team-report-status-row"><span>รอหัวหน้าประเมิน</span><b className="warning">{report.pending}</b></div>
               <div className="team-report-status-row"><span>สถานะรอบประเมิน</span><b>กำลังดำเนินการ</b></div>
             </section>
           </div>

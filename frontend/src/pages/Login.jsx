@@ -3,14 +3,14 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 
 function Login() {
-  const [username, setUsername] = useState('');
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [username, setUsername] = useState(location.state?.username || '');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('employee');
   const [error, setError] = useState(null);
   const [status, setStatus] = useState('typing'); // 'typing' | 'submitting'
 
-  const navigate = useNavigate();
-  const location = useLocation();
   const { login } = useAuth();
 
   const from = location.state?.from || '/home-menu';
@@ -74,7 +74,7 @@ function Login() {
               </select>
             </div>
             <div className="login-field">
-              <label htmlFor="username">ชื่อผู้ใช้</label>
+              <label htmlFor="username">{role === 'employee' ? 'รหัสพนักงาน / ชื่อผู้ใช้' : 'ชื่อผู้ใช้'}</label>
               <input
                 id="username"
                 type="text"
@@ -83,7 +83,7 @@ function Login() {
                   setUsername(e.target.value);
                   setError(null);
                 }}
-                placeholder={role === 'hr' ? 'กรอกชื่อผู้ใช้ HR' : role === 'manager' ? 'กรอกชื่อผู้ใช้หัวหน้าแผนก' : 'กรอกชื่อผู้ใช้'}
+                placeholder={role === 'hr' ? 'กรอกชื่อผู้ใช้ HR' : role === 'manager' ? 'กรอกชื่อผู้ใช้หัวหน้าแผนก' : 'กรอกรหัสพนักงาน เช่น EMP021'}
                 autoComplete="username"
                 required
                 aria-invalid={error?.field === 'username'}

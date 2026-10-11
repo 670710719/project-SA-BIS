@@ -1,16 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
-
-const evaluationYear = '2568';
-const competencies = [
-  { id: 'quality', label: 'คุณภาพและความถูกต้องของงาน' },
-  { id: 'ownership', label: 'ความรับผิดชอบและการทำงานให้สำเร็จ' },
-  { id: 'teamwork', label: 'การทำงานร่วมกับผู้อื่น' },
-  { id: 'communication', label: 'การสื่อสารและการประสานงาน' },
-  { id: 'improvement', label: 'การเรียนรู้และพัฒนาตนเอง' },
-];
+import {
+  calculateAssessmentScore,
+  competencies,
+  evaluationYear,
+  getAssessmentCompletion,
+  getAssessmentMissingFields,
+  performanceWeights,
+  ratingDescriptions,
+} from '../assessment/assessmentUtils';
 
 function createAssessment() {
   return {
@@ -27,11 +27,9 @@ function RatingOptions({ value, onChange, required = false, disabled = false }) 
   return (
     <select value={value} onChange={onChange} required={required} disabled={disabled}>
       <option value="">เลือกคะแนน</option>
-      <option value="1">1 - ต้องปรับปรุง</option>
-      <option value="2">2 - ต่ำกว่าความคาดหวัง</option>
-      <option value="3">3 - เป็นไปตามความคาดหวัง</option>
-      <option value="4">4 - สูงกว่าความคาดหวัง</option>
-      <option value="5">5 - โดดเด่น</option>
+      {ratingDescriptions.map(({ score, label }) => (
+        <option key={score} value={score}>{score} - {label}</option>
+      ))}
     </select>
   );
 }
@@ -39,34 +37,49 @@ function RatingOptions({ value, onChange, required = false, disabled = false }) 
 function ManagerAssessment() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const requestedEmployeeId = searchParams.get('employeeId');
+  const forwardToHr = searchParams.get('forwardToHr') === '1';
   const [employees, setEmployees] = useState([]);
   const [submissions, setSubmissions] = useState([]);
+  const [selfSubmissions, setSelfSubmissions] = useState([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   const [assessment, setAssessment] = useState(createAssessment);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [validationIssues, setValidationIssues] = useState([]);
+  const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
     Promise.all([
       fetch('/api/employees'),
       fetch(`/api/manager/assessments?manager=${encodeURIComponent(user?.username || 'Tob')}&type=manager`),
+      fetch(`/api/manager/assessments?manager=${encodeURIComponent(user?.username || 'Tob')}&type=employee`),
     ])
-      .then(async ([employeesResponse, submissionsResponse]) => {
-        if (!employeesResponse.ok || !submissionsResponse.ok) throw new Error('ไม่สามารถโหลดข้อมูลลูกทีมได้');
-        return Promise.all([employeesResponse.json(), submissionsResponse.json()]);
+      .then(async ([employeesResponse, submissionsResponse, selfResponse]) => {
+        if (!employeesResponse.ok || !submissionsResponse.ok || !selfResponse.ok) throw new Error('ไม่สามารถโหลดข้อมูลลูกทีมได้');
+        return Promise.all([employeesResponse.json(), submissionsResponse.json(), selfResponse.json()]);
       })
-      .then(([employeeData, submissionData]) => {
+      .then(([employeeData, submissionData, selfData]) => {
         if (!isMounted) return;
         const loadedEmployees = employeeData.employees || [];
         const loadedSubmissions = submissionData.assessments || [];
+        const requestedEmployee = loadedEmployees.find(({ id }) => id === requestedEmployeeId);
+        const initialEmployee = requestedEmployeeId ? requestedEmployee : loadedEmployees[0];
         setEmployees(loadedEmployees);
         setSubmissions(loadedSubmissions);
-        if (loadedEmployees.length > 0) {
-          setSelectedEmployeeId(loadedEmployees[0].id);
-          const existing = loadedSubmissions.find(({ employeeId }) => employeeId === loadedEmployees[0].id);
+        setSelfSubmissions(selfData.assessments || []);
+        if (requestedEmployeeId && !requestedEmployee) {
+          setError('ไม่พบพนักงานที่ต้องการประเมิน กรุณากลับไปเลือกรายการใหม่');
+        }
+        if (initialEmployee) {
+          setSelectedEmployeeId(initialEmployee.id);
+          const existing = loadedSubmissions.find(({ employeeId, year }) => (
+            employeeId === initialEmployee.id && year === evaluationYear
+          ));
           if (existing?.assessment) setAssessment({ ...createAssessment(), ...existing.assessment });
         }
       })
@@ -77,29 +90,30 @@ function ManagerAssessment() {
         if (isMounted) setLoading(false);
       });
     return () => { isMounted = false; };
-  }, [user?.username]);
+  }, [requestedEmployeeId, user?.username]);
 
   const selectedEmployee = employees.find(({ id }) => id === selectedEmployeeId);
-  const existingSubmission = submissions.find(({ employeeId }) => employeeId === selectedEmployeeId);
+  const existingSubmission = submissions.find(({ employeeId, year }) => (
+    employeeId === selectedEmployeeId && year === evaluationYear
+  ));
+  const selfSubmission = selfSubmissions.find(({ employeeId, year }) => (
+    employeeId === selectedEmployeeId && year === evaluationYear
+  ));
   const isSubmitted = existingSubmission?.status === 'submitted' || existingSubmission?.status === 'approved';
 
-  const averageScore = useMemo(() => {
-    const scores = [
-      ...assessment.goals.map(({ score }) => Number(score)).filter(Boolean),
-      ...Object.values(assessment.ratings).map(({ score }) => Number(score)).filter(Boolean),
-    ];
-    return scores.length
-      ? (scores.reduce((total, score) => total + score, 0) / scores.length).toFixed(2)
-      : '-';
-  }, [assessment]);
+  const scores = calculateAssessmentScore(assessment);
+  const completion = getAssessmentCompletion(assessment);
 
   function updateAssessment(updater) {
     setAssessment((current) => (typeof updater === 'function' ? updater(current) : updater));
     setMessage('');
+    setValidationIssues([]);
   }
 
   function selectEmployee(employeeId) {
-    const existing = submissions.find(({ employeeId: id }) => id === employeeId);
+    const existing = submissions.find(({ employeeId: id, year }) => (
+      id === employeeId && year === evaluationYear
+    ));
     setSelectedEmployeeId(employeeId);
     setAssessment(existing?.assessment ? { ...createAssessment(), ...existing.assessment } : createAssessment());
     setMessage('');
@@ -123,7 +137,12 @@ function ManagerAssessment() {
     setSaving(true);
     setError('');
     setMessage('');
-    const updatedAssessment = { ...assessment, status, updatedAt: new Date().toISOString() };
+    const updatedAssessment = {
+      ...assessment,
+      status,
+      updatedAt: new Date().toISOString(),
+      submittedAt: status === 'submitted' ? new Date().toISOString() : null,
+    };
     const payload = {
       id: `manager:${selectedEmployee.id}:${evaluationYear}`,
       employeeId: selectedEmployee.id,
@@ -150,11 +169,39 @@ function ManagerAssessment() {
         data.submission,
       ]);
       setMessage(status === 'submitted' ? 'ส่งผลการประเมินลูกทีมเรียบร้อยแล้ว' : 'บันทึกร่างเรียบร้อยแล้ว');
+      setValidationIssues([]);
+      setIsConfirmationOpen(false);
+
+      if (status === 'submitted' && forwardToHr) {
+        const approvalResponse = await fetch(
+          `/api/manager/assessments/${encodeURIComponent(`${selectedEmployee.id}:${evaluationYear}`)}/approve`,
+          { method: 'POST' },
+        );
+        const approvalData = await approvalResponse.json();
+        if (!approvalResponse.ok) {
+          throw new Error(`บันทึกผลประเมินแล้ว แต่ส่งต่อให้ HR ไม่สำเร็จ: ${approvalData.message || 'กรุณาลองอีกครั้งจากหน้าอนุมัติ'}`);
+        }
+        window.alert('ประเมินพนักงานเรียบร้อยแล้ว และส่งผลต่อไปยังหน้ารออนุมัติของ HR แล้ว');
+        navigate('/manager-approvals', {
+          replace: true,
+          state: { notice: `ส่งผลประเมินของ ${selectedEmployee.name} ไปยัง HR เรียบร้อยแล้ว` },
+        });
+      }
     } catch (requestError) {
       setError(requestError.message);
     } finally {
       setSaving(false);
     }
+  }
+
+  function handleSubmit(event) {
+    event.preventDefault();
+    const missingFields = getAssessmentMissingFields(assessment);
+    if (missingFields.length) {
+      setValidationIssues(missingFields);
+      return;
+    }
+    setIsConfirmationOpen(true);
   }
 
   const displayName = user?.name || user?.username || 'หัวหน้าแผนก';
@@ -175,17 +222,32 @@ function ManagerAssessment() {
           <div>
             <span className="assessment-eyebrow">หัวหน้าแผนก</span>
             <h1>ประเมินลูกทีม</h1>
-            <p>หัวหน้าเป็นผู้ประเมินลูกทีมด้วยตนเอง โดยไม่ใช้ผลจากแบบประเมินตนเองของลูกทีม</p>
+            <p>หัวหน้าประเมินแยกจากคะแนนตนเอง โดยอ้างอิงเป้าหมาย ผลลัพธ์ และพฤติกรรมที่สังเกตได้</p>
           </div>
           <span className={`assessment-status ${isSubmitted ? 'submitted' : ''}`}>
             {isSubmitted ? 'ส่งผลแล้ว' : 'กำลังกรอก'}
           </span>
         </div>
+        {!isSubmitted && !loading && selectedEmployee && (
+          <section className="assessment-progress-card" aria-label="ความครบถ้วนของแบบประเมิน">
+            <div><strong>ความครบถ้วนของผลประเมิน</strong><span>{completion}%</span></div>
+            <div className="assessment-progress-track"><span style={{ width: `${completion}%` }} /></div>
+            <small>{completion === 100 ? 'ข้อมูลครบถ้วน พร้อมส่งให้พนักงานและ HR ตรวจสอบ' : `ยังขาดข้อมูล ${getAssessmentMissingFields(assessment).length} รายการ`}</small>
+          </section>
+        )}
 
         {error && <p className="assessment-error" role="alert">{error}</p>}
         {message && <p className="assessment-success" role="status">{message}</p>}
         {loading ? <p>กำลังโหลดข้อมูลลูกทีม...</p> : (
           <>
+            {employees.length === 0 ? (
+              <section className="assessment-history-empty">
+                <span aria-hidden="true">♙</span>
+                <h2>ยังไม่มีพนักงานในระบบ</h2>
+                <p>เพิ่มรายชื่อพนักงานก่อนเริ่มการประเมิน</p>
+              </section>
+            ) : (
+              <>
             <section className="assessment-employee-card" aria-label="เลือกพนักงาน">
               <label className="assessment-field">
                 <span>พนักงานที่ต้องการประเมิน</span>
@@ -195,10 +257,30 @@ function ManagerAssessment() {
               </label>
               <div><span>ตำแหน่ง</span><strong>{selectedEmployee?.position || '-'}</strong></div>
               <div><span>รอบประเมิน</span><strong>ปี {evaluationYear}</strong></div>
-              <div><span>คะแนนเฉลี่ย</span><strong>{averageScore}</strong></div>
+              <div><span>คะแนนรวมเบื้องต้น</span><strong>{scores.overall}</strong></div>
             </section>
 
-            <form className="assessment-form" onSubmit={(event) => { event.preventDefault(); saveAssessment('submitted'); }}>
+            <details className="assessment-self-perspective">
+              <summary>
+                <span>มุมมองจากการประเมินตนเอง</span>
+                <strong>{selfSubmission?.status === 'submitted' || selfSubmission?.assessment?.status === 'submitted' ? 'ส่งแล้ว' : 'ยังไม่ส่ง'}</strong>
+              </summary>
+              {selfSubmission ? (
+                <div className="assessment-self-perspective-content">
+                  <div><span>คะแนนรวมที่พนักงานประเมินตนเอง</span><strong>{calculateAssessmentScore(selfSubmission.assessment).overall} / 5</strong></div>
+                  <p><b>จุดแข็ง:</b> {selfSubmission.assessment?.strengths || 'ไม่ได้ระบุ'}</p>
+                  <p><b>สิ่งที่ต้องการพัฒนา:</b> {selfSubmission.assessment?.improvements || 'ไม่ได้ระบุ'}</p>
+                  {(selfSubmission.assessment?.goals || []).map((goal, index) => (
+                    <p key={goal.id || index}><b>เป้าหมาย {index + 1}:</b> {goal.target || 'ไม่ได้ระบุ'} · คะแนน {goal.score || '-'}/5 · {goal.result || 'ยังไม่ระบุผลลัพธ์'}</p>
+                  ))}
+                  <small>ใช้เพื่อทำความเข้าใจมุมมองของพนักงาน ไม่ใช่คะแนนแทนการประเมินหัวหน้า</small>
+                </div>
+              ) : (
+                <p className="assessment-self-perspective-empty">พนักงานยังไม่ได้ส่งแบบประเมินตนเองในรอบนี้</p>
+              )}
+            </details>
+
+            <form className="assessment-form" onSubmit={handleSubmit}>
               <section className="assessment-section">
                 <div className="assessment-section-heading"><span className="assessment-step">1</span><div><h2>ผลงานตามเป้าหมาย</h2><p>ประเมินเป้าหมาย ผลลัพธ์ และหลักฐานประกอบของลูกทีม</p></div></div>
                 {assessment.goals.map((goal, index) => (
@@ -208,7 +290,7 @@ function ManagerAssessment() {
                     <label className="assessment-field"><span>ผลลัพธ์ที่ทำได้</span><textarea value={goal.result} onChange={(event) => updateGoal(goal.id, 'result', event.target.value)} required disabled={isSubmitted} rows="3" /></label>
                     <div className="assessment-field-grid">
                       <label className="assessment-field"><span>คะแนน</span><RatingOptions value={goal.score} onChange={(event) => updateGoal(goal.id, 'score', event.target.value)} required disabled={isSubmitted} /></label>
-                      <label className="assessment-field"><span>หลักฐานหรือข้อมูลประกอบ</span><input value={goal.evidence} onChange={(event) => updateGoal(goal.id, 'evidence', event.target.value)} disabled={isSubmitted} /></label>
+                      <label className="assessment-field"><span>หลักฐานหรือข้อมูลประกอบ</span><input value={goal.evidence} onChange={(event) => updateGoal(goal.id, 'evidence', event.target.value)} required disabled={isSubmitted} /></label>
                     </div>
                   </fieldset>
                 ))}
@@ -217,12 +299,12 @@ function ManagerAssessment() {
 
               <section className="assessment-section">
                 <div className="assessment-section-heading"><span className="assessment-step">2</span><div><h2>ทักษะและพฤติกรรม</h2><p>ให้คะแนนพร้อมตัวอย่างพฤติกรรมที่พบ</p></div></div>
-                <div className="assessment-rating-guide"><strong>เกณฑ์คะแนน</strong><span>1 ต้องปรับปรุง</span><span>2 ต่ำกว่าคาดหวัง</span><span>3 ตามคาดหวัง</span><span>4 สูงกว่าคาดหวัง</span><span>5 โดดเด่น</span></div>
+                <div className="assessment-rating-guide"><strong>มาตราส่วนคะแนน</strong>{ratingDescriptions.map(({ score, label, detail }) => <span key={score}><b>{score} · {label}</b> — {detail}</span>)}</div>
                 <div className="assessment-competencies">
                   {competencies.map(({ id, label }, index) => (
                     <div className="assessment-competency" key={id}>
                       <label className="assessment-field"><span>{index + 1}. {label}</span><RatingOptions value={assessment.ratings[id]?.score || ''} onChange={(event) => updateRating(id, 'score', event.target.value)} required disabled={isSubmitted} /></label>
-                      <label className="assessment-field"><span>ตัวอย่างหรือเหตุการณ์ประกอบ</span><input value={assessment.ratings[id]?.example || ''} onChange={(event) => updateRating(id, 'example', event.target.value)} disabled={isSubmitted} /></label>
+                      <label className="assessment-field"><span>ตัวอย่างหรือเหตุการณ์ประกอบ</span><input value={assessment.ratings[id]?.example || ''} onChange={(event) => updateRating(id, 'example', event.target.value)} required disabled={isSubmitted} /></label>
                     </div>
                   ))}
                 </div>
@@ -237,16 +319,44 @@ function ManagerAssessment() {
                 </div>
               </section>
 
+              <section className="assessment-score-summary" aria-live="polite">
+                <div className="assessment-overall-score"><span>คะแนนรวมเบื้องต้น</span><strong>{scores.overall}<small>{scores.overall === '-' ? '' : ' / 5'}</small></strong></div>
+                <div className="assessment-component-scores">
+                  <span>ผลงานตามเป้าหมาย ({performanceWeights.goals}%) <strong>{scores.goals} / 5</strong></span>
+                  <span>ทักษะและพฤติกรรม ({performanceWeights.competencies}%) <strong>{scores.competencies} / 5</strong></span>
+                </div>
+                <p>ผลประเมินจากหัวหน้าแยกจากคะแนนประเมินตนเอง ใช้หลักฐานและพฤติกรรมที่สังเกตได้</p>
+              </section>
+              {validationIssues.length > 0 && (
+                <div className="assessment-validation-summary" role="alert">
+                  <strong>ยังส่งผลประเมินไม่ได้ กรุณาตรวจสอบข้อมูลต่อไปนี้</strong>
+                  <ul>{validationIssues.map((issue) => <li key={issue}>{issue}</li>)}</ul>
+                </div>
+              )}
               {!isSubmitted && (
                 <div className="assessment-form-actions">
                   <button type="button" className="assessment-draft-button" disabled={saving} onClick={() => saveAssessment('draft')}>{saving ? 'กำลังบันทึก...' : 'บันทึกร่าง'}</button>
-                  <button type="submit" className="assessment-submit-button" disabled={saving}>ส่งผลการประเมิน</button>
+                  <button type="submit" className="assessment-submit-button" disabled={saving}>ตรวจความครบและส่ง</button>
                 </div>
               )}
             </form>
+              </>
+            )}
           </>
         )}
       </section>
+      {isConfirmationOpen && (
+        <div className="assessment-dialog-backdrop">
+          <section className="assessment-dialog" role="dialog" aria-modal="true" aria-labelledby="manager-submit-title">
+            <h2 id="manager-submit-title">ยืนยันส่งผลการประเมิน</h2>
+            <p>คะแนนรวมเบื้องต้น {scores.overall} / 5 เมื่อส่งแล้วจะล็อกแบบประเมินและส่งเข้าสู่ขั้นตอนอนุมัติ</p>
+            <div className="assessment-dialog-actions">
+              <button type="button" className="assessment-draft-button" disabled={saving} onClick={() => setIsConfirmationOpen(false)}>กลับไปตรวจทาน</button>
+              <button type="button" className="assessment-submit-button" disabled={saving} onClick={() => saveAssessment('submitted')}>{saving ? 'กำลังส่ง...' : 'ยืนยันส่งผลประเมิน'}</button>
+            </div>
+          </section>
+        </div>
+      )}
     </main>
   );
 }

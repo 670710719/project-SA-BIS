@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
+import { calculateAssessmentScore, evaluationYear } from '../assessment/assessmentUtils';
 
 function ManagerHome() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [submissions, setSubmissions] = useState([]);
+  const [managerReviews, setManagerReviews] = useState([]);
   const [submissionError, setSubmissionError] = useState('');
   const [teamEmployees, setTeamEmployees] = useState([]);
   const [employeeError, setEmployeeError] = useState('');
@@ -16,19 +18,25 @@ function ManagerHome() {
 
   useEffect(() => {
     let isMounted = true;
-    fetch('/api/manager/assessments?manager=Tob&type=employee')
-      .then((response) => {
-        if (!response.ok) throw new Error('ไม่สามารถโหลดแบบประเมินของทีมได้');
-        return response.json();
+    Promise.all([
+      fetch(`/api/manager/assessments?manager=${encodeURIComponent(user?.username || 'Tob')}&type=employee`),
+      fetch(`/api/manager/assessments?manager=${encodeURIComponent(user?.username || 'Tob')}&type=manager`),
+    ])
+      .then(async ([selfResponse, managerResponse]) => {
+        if (!selfResponse.ok || !managerResponse.ok) throw new Error('ไม่สามารถโหลดแบบประเมินของทีมได้');
+        return Promise.all([selfResponse.json(), managerResponse.json()]);
       })
-      .then((data) => {
-        if (isMounted) setSubmissions(data.assessments || []);
+      .then(([selfData, managerData]) => {
+        if (isMounted) {
+          setSubmissions(selfData.assessments || []);
+          setManagerReviews(managerData.assessments || []);
+        }
       })
       .catch((error) => {
         if (isMounted) setSubmissionError(error.message);
       });
     return () => { isMounted = false; };
-  }, []);
+  }, [user?.username]);
 
   useEffect(() => {
   let isMounted = true;
@@ -51,40 +59,48 @@ function ManagerHome() {
     navigate('/login', { replace: true });
   }
 
+  const currentSubmissions = submissions.filter(({ year }) => year === evaluationYear);
+  const currentManagerReviews = managerReviews.filter(({ year }) => year === evaluationYear);
   const teamSize = teamEmployees.length;
   const evaluatedEmployeeIds = new Set(
-    submissions
+    currentManagerReviews
       .filter(({ status, assessment }) => (
-        status === 'approved' || assessment?.status === 'submitted'
+        status === 'submitted' || status === 'approved' || assessment?.status === 'submitted'
       ))
       .map(({ employeeId }) => employeeId)
       .filter(Boolean),
   );
   const evaluatedCount = Math.min(evaluatedEmployeeIds.size, teamSize);
   const pendingEvaluationCount = Math.max(teamSize - evaluatedCount, 0);
+  const submittedSelfIds = new Set(
+    currentSubmissions
+      .filter(({ status, assessment }) => status === 'submitted' || status === 'approved' || assessment?.status === 'submitted')
+      .map(({ employeeId }) => employeeId)
+      .filter(Boolean),
+  );
+  const readyForApprovalCount = [...submittedSelfIds].filter((employeeId) => evaluatedEmployeeIds.has(employeeId)).length;
   const teamSummary = useMemo(() => {
-    const assessments = submissions
-      .filter(({ status, assessment }) => status === 'approved' || assessment?.status === 'submitted')
+    const assessments = managerReviews
+      .filter(({ year }) => year === evaluationYear)
+      .filter(({ status, assessment }) => status === 'submitted' || status === 'approved' || assessment?.status === 'submitted')
       .map(({ assessment }) => assessment)
       .filter(Boolean);
-    const goalScores = assessments.flatMap(({ goals = [] }) => (
-      goals.map(({ score }) => Number(score)).filter(Boolean)
-    ));
-    const competencyScores = assessments.flatMap(({ ratings = {} }) => (
-      Object.values(ratings).map(({ score }) => Number(score)).filter(Boolean)
-    ));
-    const allScores = [...goalScores, ...competencyScores];
-    const average = (scores) => scores.length
-      ? (scores.reduce((total, score) => total + score, 0) / scores.length).toFixed(2)
-      : '-';
+    const scoreRows = assessments.map(calculateAssessmentScore);
+    const average = (scores) => {
+      const values = scores.map(Number).filter(Number.isFinite);
+      return values.length ? (values.reduce((total, score) => total + score, 0) / values.length).toFixed(2) : '-';
+    };
+    const overallScores = scoreRows.map(({ overall }) => overall);
+    const goalsScores = scoreRows.map(({ goals }) => goals);
+    const competencyScores = scoreRows.map(({ competencies }) => competencies);
 
     return {
-      hasResults: assessments.length > 0 && allScores.length > 0,
-      average: average(allScores),
-      goalsAverage: average(goalScores),
+      hasResults: assessments.length > 0 && overallScores.some((score) => score !== '-'),
+      average: average(overallScores),
+      goalsAverage: average(goalsScores),
       competencyAverage: average(competencyScores),
     };
-  }, [submissions]);
+  }, [managerReviews]);
 
   return (
     <main className="home-menu-page manager-home-page">
@@ -137,19 +153,19 @@ function ManagerHome() {
               <h1>ยินดีต้อนรับ {displayName}</h1>
               <p>ภาพรวมการประเมินผลของทีมในความรับผิดชอบ</p>
             </div>
-            <span className="home-date">รอบประเมิน: ปี 2568</span>
+            <span className="home-date">รอบประเมิน: ปี {evaluationYear}</span>
           </div>
 
           <div className="home-summary-grid">
             <article className="home-summary-card time-card">
               <span>รอบการประเมิน</span>
-              <strong>ปี 2568</strong>
+              <strong>ปี {evaluationYear}</strong>
               <small>ประเมินประจำปี</small>
             </article>
             <article className="home-summary-card status-card">
               <span>สถานะรอบประเมิน</span>
               <strong>กำลังดำเนินการ</strong>
-              <small>ปิดรอบวันที่ 31 ธ.ค. 2568</small>
+              <small>ติดตามสถานะตามกำหนดการขององค์กร</small>
             </article>
           </div>
 
@@ -157,7 +173,7 @@ function ManagerHome() {
             <article><span>พนักงานในทีม</span><strong>{teamSize}</strong></article>
             <article><span>ประเมินแล้ว</span><strong>{evaluatedCount}</strong></article>
             <article><span>รอประเมิน</span><strong>{pendingEvaluationCount}</strong></article>
-            <article><span>รออนุมัติ</span><strong>{submissions.length}</strong></article>
+            <article><span>พร้อมอนุมัติ</span><strong>{readyForApprovalCount}</strong></article>
           </div>
 
           <div className="home-panels">
@@ -165,16 +181,23 @@ function ManagerHome() {
               <div className="home-panel-title"><h2>งานที่ต้องดำเนินการ</h2><a href="#manager-tasks">ดูทั้งหมด</a></div>
               {submissionError && <p className="assessment-error" role="alert">{submissionError}</p>}
               {employeeError && <p className="assessment-error" role="alert">{employeeError}</p>}
-              {submissions.length === 0 ? (
+              {currentSubmissions.filter(({ status, assessment }) => status === 'submitted' || status === 'approved' || assessment?.status === 'submitted').length === 0 ? (
                 <div className="home-task"><span>อนุมัติผลการประเมิน</span><small>ยังไม่มีแบบประเมินที่พนักงานส่งเข้ามา</small><b>รอตรวจสอบ</b></div>
               ) : (
-                submissions.map((submission) => (
-                  <div className="home-task" key={submission.id}>
-                    <span>{submission.employee}</span>
-                    <small>ส่งแบบประเมินเมื่อ {new Date(submission.submittedAt).toLocaleString('th-TH')}</small>
-                    <b className="warning">รอตรวจสอบ</b>
-                  </div>
-                ))
+                currentSubmissions
+                  .filter(({ status, assessment }) => status === 'submitted' || status === 'approved' || assessment?.status === 'submitted')
+                  .map((submission) => {
+                    const hasManagerReview = currentManagerReviews.some(({ employeeId, status }) => (
+                      employeeId === submission.employeeId && (status === 'submitted' || status === 'approved')
+                    ));
+                    return (
+                      <div className="home-task" key={submission.id}>
+                        <span>{submission.employee}</span>
+                        <small>{hasManagerReview ? 'หัวหน้าส่งผลประเมินแล้ว' : `ส่งแบบประเมินเมื่อ ${new Date(submission.submittedAt).toLocaleString('th-TH')}`}</small>
+                        <b className={hasManagerReview ? 'success' : 'warning'}>{hasManagerReview ? 'พร้อมอนุมัติ' : 'รอประเมิน'}</b>
+                      </div>
+                    );
+                  })
               )}
               <div className="home-task"><span>ติดตามการประเมินของทีม</span><small>พนักงาน {pendingEvaluationCount} คนยังไม่ได้ส่งแบบประเมิน</small><b>ติดตาม</b></div>
               <div className="home-task">

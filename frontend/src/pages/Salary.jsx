@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
 import { useAuth } from '../auth/AuthContext';
+import { evaluationYear } from '../assessment/assessmentUtils';
 
 const salaryGrades = [
   { grade: 'A', description: 'ผลงานโดดเด่น', percentage: '6.00%' },
@@ -61,12 +62,12 @@ function Salary() {
           </button>
           <nav className="home-navigation" aria-label="เมนูหลัก">
             <button type="button" onClick={() => navigate('/home-menu')}>⌂ หน้าหลัก</button>
-            <button type="button">▣ ประเมินตนเอง</button>
-            <button type="button">✓ ผลการประเมิน</button>
+            <button type="button" onClick={() => navigate('/self-assessment')}>▣ ประเมินตนเอง</button>
+            <button type="button" onClick={() => navigate('/assessment-results')}>✓ ผลการประเมิน</button>
             <button type="button" className="active" onClick={() => navigate('/salary')}>
               ฿ ผลต่อเงินเดือน
             </button>
-            <button type="button">▤ ประวัติการประเมิน</button>
+            <button type="button" onClick={() => navigate('/assessment-history')}>▤ ประวัติการประเมิน</button>
           </nav>
           <button type="button" className="logout-button" onClick={handleLogout}>
             ↪ ออกจากระบบ
@@ -79,7 +80,7 @@ function Salary() {
               <h1>ผลต่อการขึ้นเงินเดือน</h1>
               <p>ตัวอย่างอัตราการปรับเงินเดือนตามเกรดผลการประเมิน</p>
             </div>
-            <span className="home-date">รอบประเมิน: ปี 2568</span>
+            <span className="home-date">รอบประเมิน: ปี {evaluationYear}</span>
           </div>
 
           <div className="salary-grade-grid">
