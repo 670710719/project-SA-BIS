@@ -21,7 +21,7 @@ function ManagerTeamReport() {
     ])
       .then(async ([assessmentResponse, employeeResponse]) => {
         if (!assessmentResponse.ok || !employeeResponse.ok) {
-          throw new Error('ไม่สามารถโหลดรายงานทีมได้');
+          throw new Error('ไม่สามารถโหลดรายงานความคืบหน้าการประเมินได้');
         }
         return Promise.all([assessmentResponse.json(), employeeResponse.json()]);
       })
@@ -97,7 +97,7 @@ function ManagerTeamReport() {
             <button type="button" onClick={() => navigate('/manager-home')}>⌂ หน้าหลัก</button>
             <button type="button" onClick={() => navigate('/manager-assessment')}>▣ ประเมินลูกทีม</button>
             <button type="button" onClick={() => navigate('/manager-approvals')}>✓ อนุมัติผลการประเมิน</button>
-            <button type="button" className="active">▤ รายงานทีม</button>
+            <button type="button" className="active">▤ รายงานความคืบหน้าการประเมิน</button>
           </nav>
           <button type="button" className="logout-button" onClick={handleLogout}>↪ ออกจากระบบ</button>
         </aside>
@@ -106,7 +106,7 @@ function ManagerTeamReport() {
           <div className="home-heading">
             <div>
               <span className="assessment-eyebrow">หัวหน้าแผนก</span>
-              <h1>รายงานทีม</h1>
+              <h1>รายงานความคืบหน้าการประเมินของทีม</h1>
               <p>สรุปผลการดำเนินงานและภาพรวมการประเมินของทีม</p>
             </div>
             <span className="home-date">รอบประเมิน: ปี 2568</span>
