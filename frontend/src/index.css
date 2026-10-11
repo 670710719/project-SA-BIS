@@ -195,6 +195,12 @@ body {
   font-family: inherit;
 }
 
+.manager-home-page {
+  height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
 .assessment-alert-backdrop {
   position: fixed;
   inset: 0;
@@ -1512,6 +1518,165 @@ body {
 
 .home-request button:last-child {
   background: #df6262;
+}
+
+.team-report-content {
+  max-width: 1440px;
+  padding-bottom: 56px;
+}
+
+.team-report-stats article {
+  min-height: 108px;
+}
+
+.team-report-stats small {
+  display: block;
+  margin-top: 4px;
+  color: #819088;
+  font-size: 12px;
+}
+
+.team-report-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.team-report-grid .home-panel-title strong {
+  color: #287455;
+  font-size: 22px;
+}
+
+.home-panel-title > button {
+  padding: 0;
+  color: #368465;
+  font: inherit;
+  font-size: 13px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.team-report-progress {
+  height: 12px;
+  overflow: hidden;
+  background: #e5eee9;
+  border-radius: 10px;
+}
+
+.team-report-progress span {
+  display: block;
+  height: 100%;
+  background: #43a968;
+  border-radius: inherit;
+  transition: width 0.25s ease;
+}
+
+.team-report-muted {
+  margin: 9px 0 18px;
+  color: #7b8982;
+  font-size: 12px;
+}
+
+.team-report-notice {
+  display: grid;
+  gap: 5px;
+  padding: 13px;
+  background: #f7f9f8;
+  border-radius: 5px;
+}
+
+.team-report-notice strong {
+  color: #40574a;
+  font-size: 13px;
+}
+
+.team-report-notice span {
+  color: #7b8982;
+  font-size: 12px;
+}
+
+.team-report-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 0;
+  color: #40574a;
+  font-size: 13px;
+  border-bottom: 1px solid #edf1ee;
+}
+
+.team-report-status-row:last-child {
+  border-bottom: 0;
+}
+
+.team-report-status-row b {
+  color: #287455;
+  font-size: 13px;
+}
+
+.team-report-status-row b.warning {
+  color: #c07c1e;
+}
+
+.team-report-table-panel {
+  margin-top: 16px;
+}
+
+.team-report-table-panel .home-panel-title > span {
+  color: #819088;
+  font-size: 12px;
+}
+
+.team-report-table-wrap {
+  overflow-x: auto;
+}
+
+.team-report-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: #40574a;
+  font-size: 13px;
+}
+
+.team-report-table th,
+.team-report-table td {
+  padding: 13px 10px;
+  text-align: left;
+  border-bottom: 1px solid #edf1ee;
+}
+
+.team-report-table th {
+  color: #819088;
+  font-size: 11px;
+  font-weight: 700;
+  background: #f7f9f8;
+}
+
+.team-report-table td strong {
+  color: #315b44;
+}
+
+.team-report-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  color: #b16e18;
+  font-size: 11px;
+  background: #fff1cf;
+  border-radius: 12px;
+}
+
+.team-report-badge.complete {
+  color: #31915f;
+  background: #dff4e8;
+}
+
+@media (max-width: 900px) {
+  .team-report-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .salary-content {

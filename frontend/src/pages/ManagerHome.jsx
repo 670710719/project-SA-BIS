@@ -124,7 +124,7 @@ function ManagerHome() {
             <button type="button" className="active">⌂ หน้าหลัก</button>
             <button type="button" onClick={() => navigate('/manager-assessment')}>▣ ประเมินลูกทีม</button>
             <button type="button" onClick={() => navigate('/manager-approvals')}>✓ อนุมัติผลการประเมิน</button>
-            <button type="button">▤ รายงานทีม</button>
+            <button type="button" onClick={() => navigate('/manager-team-report')}>▤ รายงานทีม</button>
           </nav>
           <button type="button" className="logout-button" onClick={handleLogout}>
             ↪ ออกจากระบบ
@@ -190,7 +190,7 @@ function ManagerHome() {
               </div>
             </section>
             <section className="home-panel">
-              <div className="home-panel-title"><h2>ภาพรวมทีม</h2><a href="#team-report">ดูรายงาน</a></div>
+              <div className="home-panel-title"><h2>ภาพรวมทีม</h2><button type="button" onClick={() => navigate('/manager-team-report')}>ดูรายงาน</button></div>
               <div className="home-request">
                 <span>ผลงานตามเป้าหมาย</span>
                 <small>
