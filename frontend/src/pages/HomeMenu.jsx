@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import ThemeToggle from '../components/ThemeToggle';
+import UserProfileButton from '../components/UserProfileButton';
 import { Link, useNavigate } from 'react-router-dom';
 
 
@@ -74,8 +75,7 @@ function HomeMenu() {
         </div>
         <div className="home-user">
           <ThemeToggle />
-          <span>{displayName}</span>
-          <span className="home-avatar">{avatar}</span>
+          <UserProfileButton user={user} />
         </div>
       </header>
 

@@ -28,6 +28,8 @@ type User struct {
 	Username   string `json:"username"`
 	Name       string `json:"name"`
 	EmployeeID string `json:"employeeId,omitempty"`
+	Department string `json:"department,omitempty"`
+	Position   string `json:"position,omitempty"`
 	Role       string `json:"role"`
 }
 
@@ -226,6 +228,8 @@ func main() {
 						Username:   firstName,
 						Name:       firstName,
 						EmployeeID: employee.ID,
+						Department: employee.Department,
+						Position:   employee.Position,
 						Role:       account.Role,
 					}
 					break

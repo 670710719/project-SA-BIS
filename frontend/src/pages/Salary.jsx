@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
 import { useAuth } from '../auth/AuthContext';
+import UserProfileButton from '../components/UserProfileButton';
 
 const salaryGrades = [
   { grade: 'A', description: 'ผลงานโดดเด่น', percentage: '6.00%' },
@@ -35,8 +36,7 @@ function Salary() {
         </div>
         <div className="home-user">
           <ThemeToggle />
-          <span>{displayName}</span>
-          <span className="home-avatar">{avatar}</span>
+          <UserProfileButton user={user} />
         </div>
       </header>
 

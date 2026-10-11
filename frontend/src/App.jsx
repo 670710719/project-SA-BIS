@@ -10,6 +10,7 @@ import ManagerApprovals from './pages/ManagerApprovals';
 import ManagerAssessment from './pages/ManagerAssessment';
 import Salary from './pages/Salary';
 import ManagerTeamReport from './pages/ManagerTeamReport';
+import Profile from './pages/Profile';
 
 function App() {
   return (
@@ -29,6 +30,7 @@ function App() {
           <Route path="/manager-team-report" element={<ManagerTeamReport />} />
           {/* Route ของหน้าเงินเดือน: เปิดได้ที่ /salary */}
           <Route path="/salary" element={<Salary />} />
+          <Route path="/profile" element={<Profile />} />
           <Route path="/dashboard" element={<Navigate to="/home-menu" replace />} />
         </Routes>
       </BrowserRouter>

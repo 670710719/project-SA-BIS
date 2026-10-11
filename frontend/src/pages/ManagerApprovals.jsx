@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
+import UserProfileButton from '../components/UserProfileButton';
 
 function ManagerApprovals() {
   const { user, logout } = useAuth();
@@ -49,9 +50,6 @@ function ManagerApprovals() {
   }
 
   const pendingSubmissions = submissions.filter(({ status }) => status !== 'approved');
-  const displayName = user?.name || user?.username || 'หัวหน้าแผนก';
-  const avatar = displayName.charAt(0);
-
   return (
     <main className="assessment-history-page">
       <header className="home-topbar">
@@ -63,8 +61,7 @@ function ManagerApprovals() {
         </div>
         <div className="home-user">
           <ThemeToggle />
-          <span>{displayName}</span>
-          <span className="home-avatar">{avatar}</span>
+          <UserProfileButton user={user} />
         </div>
       </header>
 

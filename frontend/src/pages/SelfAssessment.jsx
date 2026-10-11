@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
+import UserProfileButton from '../components/UserProfileButton';
 import { useAuth } from '../auth/AuthContext';
 
 const evaluationYear = '2568';
@@ -184,8 +185,7 @@ function SelfAssessment() {
         </div>
         <div className="home-user">
           <ThemeToggle />
-          <span>{displayName}</span>
-          <span className="home-avatar">{displayName.charAt(0)}</span>
+          <UserProfileButton user={user} />
         </div>
       </header>
 

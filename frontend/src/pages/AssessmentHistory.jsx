@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
+import UserProfileButton from '../components/UserProfileButton';
 import { useAuth } from '../auth/AuthContext';
 
 const competencyNames = {
@@ -66,7 +67,6 @@ function formatSubmissionDate(value) {
 function AssessmentHistory() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const displayName = user?.name || user?.username || 'ผู้ใช้งาน';
   const employeeKey = user?.employeeId || user?.username || 'user';
   const [history] = useState(() => loadAssessmentHistory(employeeKey));
 
@@ -82,8 +82,7 @@ function AssessmentHistory() {
         </div>
         <div className="home-user">
           <ThemeToggle />
-          <span>{displayName}</span>
-          <span className="home-avatar">{displayName.charAt(0)}</span>
+          <UserProfileButton user={user} />
         </div>
       </header>
 

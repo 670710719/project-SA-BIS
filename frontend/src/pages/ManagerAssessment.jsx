@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
+import UserProfileButton from '../components/UserProfileButton';
 
 const evaluationYear = '2568';
 const competencies = [
@@ -157,16 +158,13 @@ function ManagerAssessment() {
     }
   }
 
-  const displayName = user?.name || user?.username || 'หัวหน้าแผนก';
-  const avatar = displayName.charAt(0);
-
   return (
     <main className="self-assessment-page">
       <header className="home-topbar">
         <div className="home-brand">
           <div><strong>ระบบประเมินพนักงาน</strong><small>Manager Performance Dashboard</small></div>
         </div>
-        <div className="home-user"><ThemeToggle /><span>{displayName}</span><span className="home-avatar">{avatar}</span></div>
+        <div className="home-user"><ThemeToggle /><UserProfileButton user={user} /></div>
       </header>
 
       <section className="self-assessment-content">

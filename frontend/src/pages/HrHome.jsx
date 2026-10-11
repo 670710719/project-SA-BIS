@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
+import UserProfileButton from '../components/UserProfileButton';
 
 function HrHome() {
   const { user, logout } = useAuth();
@@ -26,8 +27,7 @@ function HrHome() {
         </div>
         <div className="home-user">
           <ThemeToggle />
-          <span>{displayName}</span>
-          <span className="home-avatar">{avatar}</span>
+          <UserProfileButton user={user} />
         </div>
       </header>
 
