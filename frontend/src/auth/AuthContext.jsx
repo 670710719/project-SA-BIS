@@ -6,14 +6,14 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
 
-    const login = async (username, password) => {
+    const login = async (username, password, role = 'employee') => {
         let response;
 
         try {
             response = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password }),
+                body: JSON.stringify({ username, password, role }),
             });
         } catch {
             throw new Error('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาเปิด backend ที่พอร์ต 8080');
@@ -42,6 +42,7 @@ export function AuthProvider({ children }) {
 
         localStorage.setItem('token', data.token);
         setUser(data.user);
+        return data.user;
     };
 
     const register = async (username, password, confirmPassword) => {

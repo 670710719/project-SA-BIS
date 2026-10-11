@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext';
 function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState('employee');
   const [error, setError] = useState(null);
   const [status, setStatus] = useState('typing'); // 'typing' | 'submitting'
 
@@ -20,8 +21,13 @@ function Login() {
     setError(null);
 
     try {
-      await login(username, password);
-      navigate(from, { replace: true });
+      const loggedInUser = await login(username, password, role);
+      const destination = loggedInUser?.role === 'manager'
+        ? '/manager-home'
+        : loggedInUser?.role === 'hr'
+          ? '/hr-home'
+          : from;
+      navigate(destination, { replace: true });
     } catch (err) {
       setError({
         field: err.field || null,
@@ -36,11 +42,8 @@ function Login() {
       {/* แถบ Header ด้านซ้ายบน */}
       <div className="login-header flex items-start text-white">
         <div className="login-logo bg-white text-[#0c382b] font-bold rounded tracking-wider">
-          CDG
         </div>
         <div className="login-brand leading-tight">
-          <p className="font-medium text-white">ระบบการประเมินผลการทำงาน</p>
-          
         </div>
       </div>
 
@@ -53,6 +56,24 @@ function Login() {
 
           <form onSubmit={handleSubmit} className="login-form">
             <div className="login-field">
+              <label htmlFor="role">ประเภทผู้ใช้งาน</label>
+              <select
+                id="role"
+                value={role}
+                onChange={(e) => {
+                  setRole(e.target.value);
+                  setUsername('');
+                  setPassword('');
+                  setError(null);
+                }}
+                className="login-input login-role-select w-full rounded border border-gray-200 bg-gray-50 text-gray-800 focus:bg-white focus:border-blue-500 focus:outline-none transition-all"
+              >
+                <option value="hr">ฝ่ายทรัพยากรบุคคล (HR)</option>
+                <option value="manager">หัวหน้าแผนก</option>
+                <option value="employee">พนักงาน</option>
+              </select>
+            </div>
+            <div className="login-field">
               <label htmlFor="username">ชื่อผู้ใช้</label>
               <input
                 id="username"
@@ -62,7 +83,7 @@ function Login() {
                   setUsername(e.target.value);
                   setError(null);
                 }}
-                placeholder="กรอกชื่อผู้ใช้"
+                placeholder={role === 'hr' ? 'กรอกชื่อผู้ใช้ HR' : role === 'manager' ? 'กรอกชื่อผู้ใช้หัวหน้าแผนก' : 'กรอกชื่อผู้ใช้'}
                 autoComplete="username"
                 required
                 aria-invalid={error?.field === 'username'}

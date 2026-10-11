@@ -34,9 +34,8 @@ function HomeMenu() {
     <main className="home-menu-page">
       <header className="home-topbar">
         <div className="home-brand">
-          <span className="home-brand-logo">CDG</span>
           <div>
-            <strong>ระบบประเมินตนเอง</strong>
+            <strong>ระบบประเมินพนักงาน</strong>
             <small>Employee Performance System</small>
           </div>
         </div>
@@ -52,7 +51,13 @@ function HomeMenu() {
             <span className="home-avatar">{avatar}</span>
             <div>
               <strong>{displayName}</strong>
-              <small>{user?.employeeId || 'ผู้ใช้งานระบบ'}</small>
+              <small>
+                {user?.role === 'hr'
+                  ? 'ฝ่ายทรัพยากรบุคคล (HR)'
+                  : user?.role === 'manager'
+                    ? 'หัวหน้าแผนก'
+                    : (user?.employeeId || 'ผู้ใช้งานระบบ')}
+              </small>
             </div>
           </div>
           <button

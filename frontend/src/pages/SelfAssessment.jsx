@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 
@@ -64,6 +64,28 @@ function SelfAssessment() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isSubmitConfirmationOpen, setIsSubmitConfirmationOpen] = useState(false);
 
+  useEffect(() => {
+    if (storedState.assessment.status !== 'submitted') return;
+
+    fetch('/api/assessments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: `${user?.employeeId || user?.username || 'user'}:${evaluationYear}`,
+        employeeId: user?.employeeId || '',
+        employee: displayName,
+        manager: 'Tob',
+        year: evaluationYear,
+        submittedAt: storedState.assessment.submittedAt,
+        assessment: storedState.assessment,
+      }),
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error('ไม่สามารถส่งแบบประเมินเดิมให้หัวหน้าได้');
+      })
+      .catch((error) => setStorageError(error.message));
+  }, [displayName, storedState.assessment, user?.employeeId, user?.username]);
+
   const averageScore = useMemo(() => {
     const scores = [
       ...assessment.goals.map(({ score }) => Number(score)).filter(Boolean),
@@ -91,7 +113,7 @@ function SelfAssessment() {
     }));
   }
 
-  function saveAssessment(status) {
+  async function saveAssessment(status) {
     const updatedAssessment = {
       ...assessment,
       status,
@@ -101,12 +123,30 @@ function SelfAssessment() {
 
     try {
       localStorage.setItem(storageKey, JSON.stringify(updatedAssessment));
+      if (status === 'submitted') {
+        const response = await fetch('/api/assessments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: `${user?.employeeId || user?.username || 'user'}:${evaluationYear}`,
+            employeeId: user?.employeeId || '',
+            employee: displayName,
+            manager: 'Tob',
+            year: evaluationYear,
+            submittedAt: updatedAssessment.submittedAt,
+            assessment: updatedAssessment,
+          }),
+        });
+        if (!response.ok) {
+          throw new Error('ส่งแบบประเมินให้หัวหน้าไม่สำเร็จ');
+        }
+      }
       setAssessment(updatedAssessment);
       setMessage(status === 'submitted' ? 'ส่งแบบประเมินเรียบร้อยแล้ว' : 'บันทึกร่างเรียบร้อยแล้ว');
       setStorageError('');
       setIsSubmitConfirmationOpen(false);
-    } catch {
-      setStorageError('ไม่สามารถบันทึกแบบประเมินได้ กรุณาตรวจสอบพื้นที่จัดเก็บของเบราว์เซอร์แล้วลองอีกครั้ง');
+    } catch (error) {
+      setStorageError(error.message || 'ไม่สามารถบันทึกแบบประเมินได้ กรุณาลองอีกครั้ง');
     }
   }
 

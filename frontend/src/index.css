@@ -108,6 +108,20 @@ body {
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
+.login-role-select {
+  height: 24px;
+  padding: 3px 8px;
+  font-size: 8px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.login-role-select option {
+  padding: 6px 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .login-input::placeholder {
   color: #9aa9a4;
 }
