@@ -3,19 +3,25 @@ import { createContext, useContext, useState } from 'react';
 
 const AuthContext = createContext(null);
 
-export function AuthProvider({ children }) {
-    const [user, setUser] = useState(() => {
+function getStoredUser() {
+    try {
         const storedUser = localStorage.getItem('user');
         if (!storedUser) return null;
 
-        try {
-            return JSON.parse(storedUser);
-        } catch {
-            localStorage.removeItem('user');
-            localStorage.removeItem('token');
-            return null;
+        const user = JSON.parse(storedUser);
+        if (user && typeof user === 'object' && typeof user.username === 'string') {
+            return user;
         }
-    });
+    } catch {
+        // Invalid JSON is handled the same way as an invalid stored user.
+    }
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    return null;
+}
+
+export function AuthProvider({ children }) {
+    const [user, setUser] = useState(getStoredUser);
 
     const login = async (username, password, role = 'employee') => {
         let response;

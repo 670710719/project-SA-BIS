@@ -6,6 +6,7 @@ import ManagerHome from './pages/ManagerHome';
 import HrHome from './pages/HrHome';
 import EmployeeManagement from './pages/EmployeeManagement';
 import SelfAssessment from './pages/SelfAssessment';
+import PeerAssessment from './pages/PeerAssessment';
 import AssessmentHistory from './pages/AssessmentHistory';
 import AssessmentResults from './pages/AssessmentResults';
 import ManagerApprovals from './pages/ManagerApprovals';
@@ -43,6 +44,7 @@ function App() {
           <Route path="/hr-employees" element={<RoleRoute roles={['hr']}><EmployeeManagement /></RoleRoute>} />
           <Route path="/hr-approvals" element={<RoleRoute roles={['hr']}><HrApprovals /></RoleRoute>} />
           <Route path="/self-assessment" element={<RoleRoute roles={['employee']}><SelfAssessment /></RoleRoute>} />
+          <Route path="/peer-assessment" element={<RoleRoute roles={['employee']}><PeerAssessment /></RoleRoute>} />
           <Route path="/assessment-history" element={<RoleRoute roles={['employee']}><AssessmentHistory /></RoleRoute>} />
           <Route path="/assessment-results" element={<RoleRoute roles={['employee']}><AssessmentResults /></RoleRoute>} />
           <Route path="/manager-approvals" element={<RoleRoute roles={['manager']}><ManagerApprovals /></RoleRoute>} />
