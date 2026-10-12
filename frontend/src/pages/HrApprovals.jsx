@@ -25,6 +25,7 @@ function HrApprovals() {
   const [savingId, setSavingId] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -114,15 +115,25 @@ function HrApprovals() {
       </header>
 
       <div className="home-layout">
-        <aside className="home-sidebar">
+        <aside className={`home-sidebar ${isSidebarCollapsed ? 'collapsed' : ''}`}>
           <div className="home-sidebar-user">
             <span className="home-avatar">{avatar}</span>
             <div><strong>{displayName}</strong><small>ฝ่ายทรัพยากรบุคคล (HR)</small></div>
           </div>
+          <button
+            type="button"
+            className="sidebar-toggle"
+            onClick={() => setIsSidebarCollapsed((collapsed) => !collapsed)}
+            aria-label={isSidebarCollapsed ? 'ขยายแถบเมนู' : 'หดแถบเมนู'}
+            title={isSidebarCollapsed ? 'ขยายแถบเมนู' : 'หดแถบเมนู'}
+          >
+            <span className="sidebar-arrow" aria-hidden="true">{isSidebarCollapsed ? '›' : '‹'}</span>
+          </button>
           <nav className="home-navigation" aria-label="เมนูฝ่ายทรัพยากรบุคคล">
             <button type="button" onClick={() => navigate('/hr-home')}>⌂ หน้าหลัก</button>
             <button type="button" onClick={() => navigate('/hr-employees')}>▣ จัดการพนักงาน</button>
             <button type="button" className="active">✓ อนุมัติผลประเมิน</button>
+            <button type="button" onClick={() => navigate('/hr-home#hr-assessment-progress')}>▤ ความคืบหน้ารอบประเมิน</button>
           </nav>
           <button type="button" className="logout-button" onClick={handleLogout}>↪ ออกจากระบบ</button>
         </aside>

@@ -211,7 +211,8 @@ function EmployeeManagement() {
           <nav className="home-navigation" aria-label="เมนูฝ่ายทรัพยากรบุคคล">
             <button type="button" onClick={() => navigate('/hr-home')}>⌂ หน้าหลัก</button>
             <button type="button" className="active">▣ จัดการพนักงาน</button>
-            <button type="button" onClick={() => navigate('/hr-home')}>▤ ความคืบหน้ารอบประเมิน</button>
+            <button type="button" onClick={() => navigate('/hr-approvals')}>✓ อนุมัติผลประเมิน</button>
+            <button type="button" onClick={() => navigate('/hr-home#hr-assessment-progress')}>▤ ความคืบหน้ารอบประเมิน</button>
           </nav>
           <button type="button" className="logout-button" onClick={handleLogout}>↪ ออกจากระบบ</button>
         </aside>
