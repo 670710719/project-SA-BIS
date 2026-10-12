@@ -1,14 +1,74 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
+import { evaluationYear } from '../assessment/assessmentUtils';
 
 function HrHome() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [employeeCount, setEmployeeCount] = useState(0);
+  const [selfSubmissions, setSelfSubmissions] = useState([]);
+  const [managerReviews, setManagerReviews] = useState([]);
+  const [dataError, setDataError] = useState('');
   const displayName = user?.name || user?.username || 'ฝ่ายทรัพยากรบุคคล';
   const avatar = displayName.charAt(0);
+
+  useEffect(() => {
+    let isMounted = true;
+    Promise.all([
+      fetch('/api/employees'),
+      fetch('/api/manager/assessments?type=employee'),
+      fetch('/api/manager/assessments?type=manager'),
+    ])
+      .then(async ([employeesResponse, selfResponse, managerResponse]) => {
+        if (!employeesResponse.ok || !selfResponse.ok || !managerResponse.ok) {
+          throw new Error('ไม่สามารถโหลดภาพรวมรอบประเมินได้');
+        }
+        return Promise.all([
+          employeesResponse.json(),
+          selfResponse.json(),
+          managerResponse.json(),
+        ]);
+      })
+      .then(([employeeData, selfData, managerData]) => {
+        if (!isMounted) return;
+        setEmployeeCount(employeeData.count || employeeData.employees?.length || 0);
+        setSelfSubmissions(selfData.assessments || []);
+        setManagerReviews(managerData.assessments || []);
+      })
+      .catch((error) => {
+        if (isMounted) setDataError(error.message);
+      });
+    return () => { isMounted = false; };
+  }, []);
+
+  const assessmentOverview = useMemo(() => {
+    const submittedSelf = selfSubmissions.filter(({ status, assessment, year }) => year === evaluationYear && (
+      status === 'submitted' || status === 'approved' || assessment?.status === 'submitted'
+    ));
+    const managerSubmitted = managerReviews.filter(({ status, assessment, year }) => year === evaluationYear && (
+      status === 'submitted' || status === 'approved' || assessment?.status === 'submitted'
+    ));
+    const reviewedIds = new Set(managerSubmitted.map(({ employeeId }) => employeeId));
+    const selfSubmittedIds = new Set(submittedSelf.map(({ employeeId }) => employeeId));
+    const readyForApproval = submittedSelf.filter(({ employeeId }) => reviewedIds.has(employeeId)).length;
+    const approved = submittedSelf.filter(({ status }) => status === 'approved').length;
+    return {
+      submitted: selfSubmittedIds.size,
+      waitingManager: Math.max(selfSubmittedIds.size - reviewedIds.size, 0),
+      readyForApproval,
+      approved,
+      pendingSelf: Math.max(employeeCount - selfSubmittedIds.size, 0),
+    };
+  }, [employeeCount, managerReviews, selfSubmissions]);
+  const selfSubmissionPercent = employeeCount
+    ? Math.min(100, Math.round((assessmentOverview.submitted / employeeCount) * 100))
+    : 0;
+  const managerReviewPercent = assessmentOverview.submitted
+    ? Math.min(100, Math.round(((assessmentOverview.submitted - assessmentOverview.waitingManager) / assessmentOverview.submitted) * 100))
+    : 0;
 
   function handleLogout() {
     logout();
@@ -19,9 +79,10 @@ function HrHome() {
     <main className="home-menu-page hr-home-page">
       <header className="home-topbar">
         <div className="home-brand">
+          <span className="home-brand-logo">HR</span>
           <div>
-            <strong>ระบบประเมินพนักงาน</strong>
-            <small>HR Performance Dashboard</small>
+            <strong>ศูนย์ปฏิบัติงาน HR</strong>
+            <small>PEOPLE & PERFORMANCE</small>
           </div>
         </div>
         <div className="home-user">
@@ -51,56 +112,67 @@ function HrHome() {
           </button>
           <nav className="home-navigation" aria-label="เมนูฝ่ายทรัพยากรบุคคล">
             <button type="button" className="active">⌂ หน้าหลัก</button>
-            <button type="button">▣ จัดการพนักงาน</button>
-            <button type="button">✓ ตรวจสอบผลการประเมิน</button>
-            <button type="button">฿ จัดการการปรับเงินเดือน</button>
-            <button type="button">▤ รายงานภาพรวม</button>
+            <button type="button" onClick={() => navigate('/hr-employees')}>▣ จัดการพนักงาน</button>
+            <button type="button" onClick={() => navigate('/hr-approvals')}>✓ อนุมัติผลประเมิน</button>
+            <button type="button" onClick={() => document.getElementById('hr-assessment-progress')?.scrollIntoView({ behavior: 'smooth' })}>▤ ความคืบหน้ารอบประเมิน</button>
           </nav>
           <button type="button" className="logout-button" onClick={handleLogout}>
             ↪ ออกจากระบบ
           </button>
         </aside>
 
-        <section className="home-content">
-          <div className="home-heading">
+        <section className="home-content hr-dashboard-content">
+          <div className="hr-dashboard-hero">
             <div>
-              <h1>ยินดีต้อนรับ {displayName}</h1>
-              <p>ภาพรวมการประเมินผลพนักงานทั้งองค์กร</p>
+              <span className="hr-dashboard-eyebrow">HR WORKSPACE · ปีประเมิน {evaluationYear}</span>
+              <h1>สวัสดี, {displayName}</h1>
+              <p>ติดตามข้อมูลบุคลากรและความคืบหน้าการประเมินของพนักงานทั้งองค์กร</p>
+              <small>บัญชี HR ใช้สำหรับดูแลระบบและติดตามงาน ไม่ใช่บัญชีประเมินตนเอง</small>
             </div>
-            <span className="home-date">รอบประเมิน: ปี 2568</span>
-          </div>
-
-          <div className="home-summary-grid">
-            <article className="home-summary-card time-card">
-              <span>รอบการประเมิน</span>
-              <strong>ปี 2568</strong>
-              <small>ประเมินประจำปี</small>
-            </article>
-            <article className="home-summary-card status-card">
-              <span>สถานะรอบประเมิน</span>
-              <strong>กำลังดำเนินการ</strong>
-              <small>ปิดรอบวันที่ 31 ธ.ค. 2568</small>
-            </article>
+            <button type="button" className="hr-dashboard-cta" onClick={() => navigate('/hr-employees')}>
+              <span aria-hidden="true">＋</span> จัดการรายชื่อพนักงาน
+            </button>
           </div>
 
           <div className="home-stat-grid">
-            <article><span>พนักงานทั้งหมด</span><strong>156</strong></article>
-            <article><span>ประเมินแล้ว</span><strong>142</strong></article>
-            <article><span>รอการประเมิน</span><strong>14</strong></article>
-            <article><span>รออนุมัติผล</span><strong>7</strong></article>
+            <article><span>พนักงานในระบบ</span><strong>{employeeCount}</strong><small>ทุกแผนก</small></article>
+            <article><span>พนักงานส่งแบบประเมิน</span><strong>{assessmentOverview.submitted}</strong><small>จาก {employeeCount} คน</small></article>
+            <article><span>รอหัวหน้าประเมิน</span><strong>{assessmentOverview.waitingManager}</strong><small>ส่งแบบประเมินแล้ว</small></article>
+            <article><span>รอพนักงานส่งแบบประเมิน</span><strong>{assessmentOverview.pendingSelf}</strong><small>ติดตามตามรอบประเมิน</small></article>
           </div>
+          {dataError && <p className="assessment-error" role="alert">{dataError}</p>}
 
-          <div className="home-panels">
-            <section className="home-panel">
-              <div className="home-panel-title"><h2>งานที่ต้องดำเนินการ</h2><a href="#hr-tasks">ดูทั้งหมด</a></div>
-              <div className="home-task"><span>ตรวจสอบผลการประเมิน</span><small>มี 7 รายการรอตรวจสอบ</small><b className="warning">รอดำเนินการ</b></div>
-              <div className="home-task"><span>ติดตามพนักงานที่ยังไม่ประเมิน</span><small>มี 14 คนยังไม่ได้ส่งแบบประเมิน</small><b>ติดตาม</b></div>
-              <div className="home-task"><span>จัดทำรายงานประจำรอบ</span><small>กำหนดส่งภายใน 31 ธ.ค. 2568</small><b className="success">ตามกำหนด</b></div>
+          <div className="hr-dashboard-panels">
+            <section className="home-panel hr-progress-panel" id="hr-assessment-progress">
+              <div className="home-panel-title">
+                <div><h2>ความคืบหน้ารอบประเมินพนักงาน</h2><p>ปีประเมิน {evaluationYear} · สรุปเพื่อการติดตามโดย HR</p></div>
+                <span className="hr-cycle-status">● รอบประเมิน</span>
+              </div>
+              <div className="hr-progress-item">
+                <div className="hr-progress-heading"><span>พนักงานส่งแบบประเมินแล้ว</span><strong>{assessmentOverview.submitted} / {employeeCount} คน <small>{selfSubmissionPercent}%</small></strong></div>
+                <div className="hr-progress-track"><span style={{ width: `${selfSubmissionPercent}%` }} /></div>
+                <small className="hr-progress-caption">เป็นการติดตามแบบประเมินที่พนักงานส่ง ไม่ใช่แบบประเมินของบัญชี HR</small>
+              </div>
+              <div className="hr-progress-item">
+                <div className="hr-progress-heading"><span>หัวหน้าส่งผลประเมินแล้ว</span><strong>{assessmentOverview.submitted - assessmentOverview.waitingManager} / {assessmentOverview.submitted} คน <small>{managerReviewPercent}%</small></strong></div>
+                <div className="hr-progress-track manager-progress"><span style={{ width: `${managerReviewPercent}%` }} /></div>
+              </div>
+              <div className="hr-progress-legend">
+                <span><i className="submitted-dot" /> อนุมัติแล้ว {assessmentOverview.approved}</span>
+                <span><i className="ready-dot" /> พร้อมเข้าสู่ขั้นอนุมัติ {assessmentOverview.readyForApproval}</span>
+              </div>
             </section>
-            <section className="home-panel">
-              <div className="home-panel-title"><h2>ภาพรวมผลการประเมิน</h2><a href="#hr-report">ดูรายงาน</a></div>
-              <div className="home-request"><span>ผลการประเมินระดับ A</span><small>32 คน · 20.5% ของพนักงานทั้งหมด</small><div><button type="button">ดูรายละเอียด</button></div></div>
-              <div className="home-request"><span>คำขอปรับเงินเดือน</span><small>มี 12 รายการรอพิจารณา</small><div><button type="button">ดูรายละเอียด</button></div></div>
+            <section className="home-panel hr-action-panel">
+              <div className="home-panel-title"><div><h2>ทางลัดสำหรับ HR</h2><p>งานจัดการบุคลากรและติดตามรอบประเมิน</p></div></div>
+              <button type="button" className="hr-action-card" onClick={() => navigate('/hr-employees')}>
+                <span className="hr-action-icon">♙</span><span><strong>จัดการพนักงาน</strong><small>ลงทะเบียน ค้นหา แก้ไขข้อมูล และดูบัญชีผู้ใช้</small></span><b aria-hidden="true">→</b>
+              </button>
+              <button type="button" className="hr-action-card" onClick={() => navigate('/hr-approvals')}>
+                <span className="hr-action-icon">✓</span><span><strong>อนุมัติผลประเมิน</strong><small>ให้คะแนน เขียน feedback และส่งผลกลับพนักงาน</small></span><b aria-hidden="true">→</b>
+              </button>
+              <button type="button" className="hr-action-card" onClick={() => document.getElementById('hr-assessment-progress')?.scrollIntoView({ behavior: 'smooth' })}>
+                <span className="hr-action-icon hr-action-icon-blue">▤</span><span><strong>ติดตามรอบประเมิน</strong><small>ดูจำนวนที่ส่งแล้ว รอหัวหน้าประเมิน และอนุมัติแล้ว</small></span><b aria-hidden="true">→</b>
+              </button>
             </section>
           </div>
         </section>

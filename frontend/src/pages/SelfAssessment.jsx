@@ -1,16 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
 import { useAuth } from '../auth/AuthContext';
-
-const evaluationYear = '2568';
-const competencies = [
-  { id: 'quality', label: 'คุณภาพและความถูกต้องของงาน' },
-  { id: 'ownership', label: 'ความรับผิดชอบและการทำงานให้สำเร็จ' },
-  { id: 'teamwork', label: 'การทำงานร่วมกับผู้อื่น' },
-  { id: 'communication', label: 'การสื่อสารและการประสานงาน' },
-  { id: 'improvement', label: 'การเรียนรู้และพัฒนาตนเอง' },
-];
+import {
+  calculateAssessmentScore,
+  competencies,
+  evaluationYear,
+  getAssessmentCompletion,
+  getAssessmentMissingFields,
+  performanceWeights,
+  ratingDescriptions,
+} from '../assessment/assessmentUtils';
 
 function createEmptyAssessment() {
   return {
@@ -29,11 +29,9 @@ function RatingOptions({ value, onChange, required = false, disabled = false, id
   return (
     <select id={id} value={value} onChange={onChange} required={required} disabled={disabled}>
       <option value="">เลือกคะแนน</option>
-      <option value="1">1 - ต้องปรับปรุง</option>
-      <option value="2">2 - ต่ำกว่าความคาดหวัง</option>
-      <option value="3">3 - เป็นไปตามความคาดหวัง</option>
-      <option value="4">4 - สูงกว่าความคาดหวัง</option>
-      <option value="5">5 - โดดเด่น</option>
+      {ratingDescriptions.map(({ score, label }) => (
+        <option key={score} value={score}>{score} - {label}</option>
+      ))}
     </select>
   );
 }
@@ -62,6 +60,8 @@ function SelfAssessment() {
   const [assessment, setAssessment] = useState(storedState.assessment);
   const [storageError, setStorageError] = useState(storedState.error);
   const [message, setMessage] = useState('');
+  const [validationIssues, setValidationIssues] = useState([]);
+  const [isSaving, setIsSaving] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isSubmitConfirmationOpen, setIsSubmitConfirmationOpen] = useState(false);
 
@@ -86,17 +86,13 @@ function SelfAssessment() {
       .catch((error) => setStorageError(error.message));
   }, [displayName, storageKey, storedState.assessment.status, user?.employeeId, user?.username]);
 
-  const averageScore = useMemo(() => {
-    const scores = [
-      ...assessment.goals.map(({ score }) => Number(score)).filter(Boolean),
-      ...Object.values(assessment.ratings).map(({ score }) => Number(score)).filter(Boolean),
-    ];
-    return scores.length ? (scores.reduce((total, score) => total + score, 0) / scores.length).toFixed(2) : '-';
-  }, [assessment.goals, assessment.ratings]);
+  const scores = calculateAssessmentScore(assessment);
+  const completion = getAssessmentCompletion(assessment);
 
   function updateAssessment(updater) {
     setAssessment((current) => (typeof updater === 'function' ? updater(current) : updater));
     setMessage('');
+    setValidationIssues([]);
   }
 
   function updateGoal(goalId, field, value) {
@@ -114,6 +110,7 @@ function SelfAssessment() {
   }
 
   async function saveAssessment(status) {
+    setIsSaving(true);
     const updatedAssessment = {
       ...assessment,
       status,
@@ -122,32 +119,39 @@ function SelfAssessment() {
     };
 
     try {
-      localStorage.setItem(storageKey, JSON.stringify(updatedAssessment));
-      if (status === 'submitted') {
-        const response = await fetch('/api/assessments', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: `${user?.employeeId || user?.username || 'user'}:${evaluationYear}`,
-            employeeId: user?.employeeId || '',
-            employee: displayName,
-            manager: 'Tob',
-            year: evaluationYear,
-            submittedAt: updatedAssessment.submittedAt,
-            assessmentType: 'employee',
-            assessment: updatedAssessment,
-          }),
-        });
-        if (!response.ok) {
-          throw new Error('ส่งแบบประเมินให้หัวหน้าไม่สำเร็จ');
-        }
+      const employeeId = user?.employeeId || user?.username || '';
+      const response = await fetch('/api/assessments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: `${employeeId}:${evaluationYear}`,
+          employeeId,
+          employee: displayName,
+          manager: 'Tob',
+          year: evaluationYear,
+          submittedAt: updatedAssessment.submittedAt || '',
+          status,
+          assessmentType: 'employee',
+          assessment: updatedAssessment,
+        }),
+      });
+      const responseData = await response.json();
+      if (!response.ok) throw new Error(responseData.message || 'ไม่สามารถบันทึกแบบประเมินไปยังเซิร์ฟเวอร์ได้');
+      let localCopyError = '';
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(updatedAssessment));
+      } catch {
+        localCopyError = 'บันทึกลงเซิร์ฟเวอร์แล้ว แต่ไม่สามารถบันทึกสำเนาในเบราว์เซอร์ได้';
       }
       setAssessment(updatedAssessment);
       setMessage(status === 'submitted' ? 'ส่งแบบประเมินเรียบร้อยแล้ว' : 'บันทึกร่างเรียบร้อยแล้ว');
-      setStorageError('');
+      setStorageError(localCopyError);
+      setValidationIssues([]);
       setIsSubmitConfirmationOpen(false);
     } catch (error) {
       setStorageError(error.message || 'ไม่สามารถบันทึกแบบประเมินได้ กรุณาลองอีกครั้ง');
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -167,6 +171,11 @@ function SelfAssessment() {
 
   function handleSubmit(event) {
     event.preventDefault();
+    const missingFields = getAssessmentMissingFields(assessment);
+    if (missingFields.length) {
+      setValidationIssues(missingFields);
+      return;
+    }
     setIsSubmitConfirmationOpen(true);
   }
 
@@ -204,6 +213,13 @@ function SelfAssessment() {
             {isSubmitted ? 'ส่งแบบประเมินแล้ว' : 'กำลังกรอก'}
           </span>
         </div>
+        {!isSubmitted && (
+          <section className="assessment-progress-card" aria-label="ความครบถ้วนของแบบประเมิน">
+            <div><strong>ความครบถ้วนของแบบประเมิน</strong><span>{completion}%</span></div>
+            <div className="assessment-progress-track"><span style={{ width: `${completion}%` }} /></div>
+            <small>{completion === 100 ? 'ข้อมูลครบถ้วน พร้อมตรวจทานและส่งแบบประเมิน' : `กรอกข้อมูลให้ครบเพื่อส่ง · ยังขาด ${getAssessmentMissingFields(assessment).length} รายการ`}</small>
+          </section>
+        )}
 
         <section className="assessment-employee-card" aria-label="ข้อมูลพนักงาน">
           <div><span>ชื่อพนักงาน</span><strong>{displayName}</strong></div>
@@ -217,7 +233,7 @@ function SelfAssessment() {
                 <span className="assessment-step">1</span>
                 <div>
                   <h2>ผลงานตามเป้าหมาย</h2>
-                  <p>ระบุเป้าหมาย ผลลัพธ์ที่ทำได้ และคะแนนประเมินตนเอง</p>
+                  <p>ระบุเป้าหมาย ผลลัพธ์ที่ทำได้ คะแนน และหลักฐานประกอบอย่างตรวจสอบได้</p>
                 </div>
               </div>
               {assessment.goals.map((goal, index) => (
@@ -264,11 +280,12 @@ function SelfAssessment() {
                       />
                     </label>
                     <label className="assessment-field">
-                      <span>หลักฐานหรือข้อมูลประกอบ <small>(ถ้ามี)</small></span>
+                      <span>หลักฐานหรือข้อมูลประกอบ</span>
                       <input
                         value={goal.evidence}
                         onChange={(event) => updateGoal(goal.id, 'evidence', event.target.value)}
                         placeholder="เช่น ตัวเลขผลงาน ลิงก์ หรือรายละเอียด"
+                        required
                         disabled={isSubmitted}
                       />
                     </label>
@@ -287,13 +304,14 @@ function SelfAssessment() {
                 <span className="assessment-step">2</span>
                 <div>
                   <h2>ทักษะและพฤติกรรม</h2>
-                  <p>ให้คะแนนตามพฤติกรรมการทำงาน พร้อมตัวอย่างประกอบ</p>
+                  <p>ให้คะแนนตามพฤติกรรมที่สังเกตได้ พร้อมตัวอย่างหรือเหตุการณ์ประกอบ</p>
                 </div>
               </div>
               <div className="assessment-rating-guide">
-                <strong>เกณฑ์คะแนน</strong>
-                <span>1 ต้องปรับปรุง</span><span>2 ต่ำกว่าคาดหวัง</span><span>3 ตามคาดหวัง</span>
-                <span>4 สูงกว่าคาดหวัง</span><span>5 โดดเด่น</span>
+                <strong>มาตราส่วนคะแนน</strong>
+                {ratingDescriptions.map(({ score, label, detail }) => (
+                  <span key={score}><b>{score} · {label}</b> — {detail}</span>
+                ))}
               </div>
               <div className="assessment-competencies">
                 {competencies.map(({ id, label }, index) => (
@@ -309,11 +327,12 @@ function SelfAssessment() {
                       />
                     </label>
                     <label className="assessment-field">
-                      <span>ตัวอย่างหรือเหตุการณ์ประกอบ <small>(ถ้ามี)</small></span>
+                      <span>ตัวอย่างหรือเหตุการณ์ประกอบ</span>
                       <input
                         value={assessment.ratings[id]?.example || ''}
                         onChange={(event) => updateRating(id, 'example', event.target.value)}
                         placeholder="อธิบายสั้น ๆ ว่าคะแนนนี้สะท้อนจากอะไร"
+                        required
                         disabled={isSubmitted}
                       />
                     </label>
@@ -368,23 +387,33 @@ function SelfAssessment() {
             </section>
 
             <section className="assessment-score-summary" aria-live="polite">
-              <div><span>คะแนนเฉลี่ยที่ให้ตนเอง</span><strong>{averageScore}<small>{averageScore === '-' ? '' : ' / 5'}</small></strong></div>
-              <p>คะแนนเฉลี่ยนี้เป็นข้อมูลสรุปเบื้องต้น ไม่ใช่ผลการประเมินขั้นสุดท้าย</p>
+              <div className="assessment-overall-score"><span>คะแนนรวมเบื้องต้น</span><strong>{scores.overall}<small>{scores.overall === '-' ? '' : ' / 5'}</small></strong></div>
+              <div className="assessment-component-scores">
+                <span>ผลงานตามเป้าหมาย ({performanceWeights.goals}%) <strong>{scores.goals} / 5</strong></span>
+                <span>ทักษะและพฤติกรรม ({performanceWeights.competencies}%) <strong>{scores.competencies} / 5</strong></span>
+              </div>
+              <p>คะแนนนี้เป็นการประเมินตนเองเพื่อประกอบการพูดคุย หัวหน้าจะประเมินแยกต่างหากและไม่รวมคะแนนโดยอัตโนมัติ</p>
             </section>
 
             {storageError && <p className="assessment-error" role="alert">{storageError}</p>}
             {message && <p className="assessment-message" role="status">{message}</p>}
+            {validationIssues.length > 0 && (
+              <div className="assessment-validation-summary" role="alert">
+                <strong>ยังส่งแบบประเมินไม่ได้ กรุณาตรวจสอบข้อมูลต่อไปนี้</strong>
+                <ul>{validationIssues.map((issue) => <li key={issue}>{issue}</li>)}</ul>
+              </div>
+            )}
 
             <div className="assessment-form-actions">
               {!isSubmitted && (
                 <>
-                  <button type="button" className="assessment-draft-button" onClick={() => saveAssessment('draft')}>
-                    บันทึกร่าง
+                  <button type="button" className="assessment-draft-button" disabled={isSaving} onClick={() => saveAssessment('draft')}>
+                    {isSaving ? 'กำลังบันทึก...' : 'บันทึกร่าง'}
                   </button>
-                  <button type="button" className="assessment-preview-button" onClick={() => setIsPreviewOpen(true)}>
+                  <button type="button" className="assessment-preview-button" disabled={isSaving} onClick={() => setIsPreviewOpen(true)}>
                     ดูตัวอย่าง
                   </button>
-                  <button type="submit" className="assessment-submit-button">ส่งแบบประเมิน</button>
+                  <button type="submit" className="assessment-submit-button" disabled={isSaving}>ตรวจความครบและส่ง</button>
                 </>
               )}
               {isSubmitted && (
@@ -407,7 +436,7 @@ function SelfAssessment() {
             <h2 id="assessment-dialog-title">{isPreviewOpen ? 'ตรวจทานแบบประเมิน' : 'ยืนยันการส่งแบบประเมิน'}</h2>
             <p>
               {isPreviewOpen
-                ? `คะแนนเฉลี่ยปัจจุบัน ${averageScore}${averageScore === '-' ? '' : ' / 5'} — ตรวจสอบข้อมูลก่อนส่งแบบประเมิน`
+                ? `คะแนนรวมเบื้องต้น ${scores.overall}${scores.overall === '-' ? '' : ' / 5'} — ผลงาน ${performanceWeights.goals}% และพฤติกรรม ${performanceWeights.competencies}%`
                 : 'เมื่อส่งแล้วจะไม่สามารถแก้ไขข้อมูลได้ กรุณาตรวจสอบความถูกต้องก่อนยืนยัน'}
             </p>
             {isPreviewOpen && (
@@ -418,12 +447,13 @@ function SelfAssessment() {
                     <strong>เป้าหมาย {index + 1} · คะแนน {goal.score || '-'}/5</strong>
                     <p>{goal.target || 'ยังไม่ได้ระบุเป้าหมาย'}</p>
                     <small>{goal.result || 'ยังไม่ได้ระบุผลลัพธ์'}</small>
+                    <small>หลักฐาน: {goal.evidence || 'ยังไม่ได้ระบุ'}</small>
                   </article>
                 ))}
                 <h3>ทักษะและพฤติกรรม</h3>
                 <ul>
                   {competencies.map(({ id, label }) => (
-                    <li key={id}>{label}: {assessment.ratings[id]?.score || '-'}/5</li>
+                    <li key={id}>{label}: {assessment.ratings[id]?.score || '-'}/5 — {assessment.ratings[id]?.example || 'ยังไม่ได้ระบุตัวอย่าง'}</li>
                   ))}
                 </ul>
                 <h3>สรุปและแผนพัฒนา</h3>
@@ -449,7 +479,7 @@ function SelfAssessment() {
                 </button>
               )}
               {isSubmitConfirmationOpen && (
-                <button type="button" className="assessment-submit-button" onClick={() => saveAssessment('submitted')}>
+                <button type="button" className="assessment-submit-button" disabled={isSaving} onClick={() => saveAssessment('submitted')}>
                   ยืนยันส่งแบบประเมิน
                 </button>
               )}

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import ThemeToggle from '../components/ThemeToggle';
 import { Link, useNavigate } from 'react-router-dom';
+import { evaluationYear } from '../assessment/assessmentUtils';
 
 
 function HomeMenu() {
@@ -17,7 +18,7 @@ function HomeMenu() {
 
   useEffect(() => {
     const employeeId = user?.employeeId || user?.username || 'user';
-    fetch(`/api/assessments?employeeId=${encodeURIComponent(employeeId)}&year=2568&type=employee`)
+    fetch(`/api/assessments?employeeId=${encodeURIComponent(employeeId)}&year=${evaluationYear}&type=employee`)
       .then((response) => {
         if (!response.ok) throw new Error('ไม่สามารถโหลดผลการประเมินได้');
         return response.json();
@@ -33,24 +34,18 @@ function HomeMenu() {
   const assessmentSummary = useMemo(() => {
     const assessment = assessmentRecord?.assessment;
     if (!assessment || assessment.status !== 'submitted') {
-      return { hasResult: false, goalsAverage: '-', competencyAverage: '-', status: 'ยังไม่ได้ส่งแบบประเมิน' };
+      return { hasHrResult: false, hrFinalScore: null, hrFeedback: '', status: 'ยังไม่ได้ส่งแบบประเมิน' };
     }
 
-    const average = (scores) => scores.length
-      ? (scores.reduce((total, score) => total + score, 0) / scores.length).toFixed(2)
-      : '-';
-    const goalScores = (assessment.goals || [])
-      .map(({ score }) => Number(score))
-      .filter(Boolean);
-    const competencyScores = Object.values(assessment.ratings || {})
-      .map(({ score }) => Number(score))
-      .filter(Boolean);
-
     return {
-      hasResult: goalScores.length > 0 || competencyScores.length > 0,
-      goalsAverage: average(goalScores),
-      competencyAverage: average(competencyScores),
-      status: assessmentRecord.status === 'approved' ? 'อนุมัติแล้ว' : 'รอผู้จัดการอนุมัติ',
+      hasHrResult: assessmentRecord.status === 'approved',
+      hrFinalScore: assessmentRecord.hrFinalScore,
+      hrFeedback: assessmentRecord.hrFeedback,
+      status: assessmentRecord.status === 'approved'
+        ? 'HR อนุมัติแล้ว'
+        : assessmentRecord.status === 'pending_hr'
+          ? 'รอ HR อนุมัติ'
+          : 'รอผู้จัดการอนุมัติ',
     };
   }, [assessmentRecord]);
 
@@ -106,7 +101,7 @@ function HomeMenu() {
           <nav className="home-navigation" aria-label="เมนูหลัก">
             <button type="button" className="active">⌂ หน้าหลัก</button>
             <button type="button" onClick={goToSelfAssessment}>▣ ประเมินตนเอง</button>
-            <button type="button">✓ ผลการประเมิน</button>
+            <button type="button" onClick={() => navigate('/assessment-results')}>✓ ผลการประเมิน</button>
             <button type="button" onClick={() => navigate('/salary')}>
               ฿ ผลต่อเงินเดือน
             </button>
@@ -123,7 +118,7 @@ function HomeMenu() {
               <h1>ยินดีต้อนรับ {displayName}</h1>
               <p>ภาพรวมผลการประเมินและการปรับเงินเดือน</p>
             </div>
-            <span className="home-date">รอบประเมิน: ปี 2568</span>
+            <span className="home-date">รอบประเมิน: ปี {evaluationYear}</span>
           </div>
           {assessmentError && (
             <p className="assessment-error" role="alert">{assessmentError}</p>
@@ -132,7 +127,7 @@ function HomeMenu() {
           <div className="home-summary-grid">
             <article className="home-summary-card time-card">
               <span>รอบการประเมิน</span>
-              <strong>ปี 2568</strong>
+              <strong>ปี {evaluationYear}</strong>
               <small>ประเมินประจำปี</small>
             </article>
             <article className="home-summary-card status-card">
@@ -144,16 +139,20 @@ function HomeMenu() {
 
           <div className="home-panels">
             <section className="home-panel">
-              <div className="home-panel-title"><h2>สรุปผลการประเมิน</h2></div>
-              <div className="home-task">
-                <span>ผลงานตามเป้าหมาย</span>
-                <small>{assessmentSummary.hasResult ? `คะแนนเฉลี่ย ${assessmentSummary.goalsAverage} / 5.00` : 'ยังไม่มีผลการประเมิน'}</small>
-                <b className={assessmentSummary.hasResult ? 'success' : ''}>{assessmentSummary.hasResult ? 'มีผลคะแนน' : 'รอดำเนินการ'}</b>
+              <div className="home-panel-title">
+                <h2>ผลการประเมินจาก HR</h2>
+                <button type="button" onClick={() => navigate('/assessment-results')}>ดูผล</button>
               </div>
               <div className="home-task">
-                <span>ทักษะและพฤติกรรม</span>
-                <small>{assessmentSummary.hasResult ? `คะแนนเฉลี่ย ${assessmentSummary.competencyAverage} / 5.00` : 'ยังไม่มีผลการประเมิน'}</small>
-                <b className={assessmentSummary.hasResult ? 'success' : ''}>{assessmentSummary.hasResult ? 'มีผลคะแนน' : 'รอดำเนินการ'}</b>
+                <span>คะแนนสรุปจาก HR</span>
+                <small>
+                  {assessmentSummary.hasHrResult
+                    ? `${assessmentSummary.hrFinalScore ?? '-'}${assessmentSummary.hrFinalScore == null ? '' : ' / 5'}`
+                    : 'ยังไม่มีผลสรุปจาก HR'}
+                </small>
+                <b className={assessmentSummary.hasHrResult ? 'success' : 'warning'}>
+                  {assessmentSummary.hasHrResult ? 'ส่งผลกลับแล้ว' : 'รอดำเนินการ'}
+                </b>
               </div>
               <div className="home-task">
                 <span>สถานะผลการประเมิน</span>
@@ -162,6 +161,12 @@ function HomeMenu() {
                   {assessmentRecord?.status === 'approved' ? 'เสร็จสิ้น' : 'รอดำเนินการ'}
                 </b>
               </div>
+              {assessmentSummary.hasHrResult && (
+                <div className="home-task">
+                  <span>Feedback จาก HR</span>
+                  <small>{assessmentSummary.hrFeedback || 'ไม่มี feedback'}</small>
+                </div>
+              )}
             </section>
             <section className="home-panel">
               <div className="home-panel-title"><h2>ผลต่อการขึ้นเงินเดือน</h2><Link to="/salary">ดูรายละเอียด</Link></div>

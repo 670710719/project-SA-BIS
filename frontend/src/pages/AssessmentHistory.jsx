@@ -1,62 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
 import { useAuth } from '../auth/AuthContext';
-
-const competencyNames = {
-  quality: 'คุณภาพและความถูกต้องของงาน',
-  ownership: 'ความรับผิดชอบและการทำงานให้สำเร็จ',
-  teamwork: 'การทำงานร่วมกับผู้อื่น',
-  communication: 'การสื่อสารและการประสานงาน',
-  improvement: 'การเรียนรู้และพัฒนาตนเอง',
-};
-
-function loadAssessmentHistory(employeeKey) {
-  const keyPrefix = `self-assessment:${employeeKey}:`;
-  const records = [];
-  const errors = [];
-
-  try {
-    for (let index = 0; index < localStorage.length; index += 1) {
-      const key = localStorage.key(index);
-      if (!key?.startsWith(keyPrefix)) continue;
-
-      try {
-        const assessment = JSON.parse(localStorage.getItem(key));
-        if (assessment?.status === 'submitted') {
-          records.push({
-            ...assessment,
-            year: key.slice(keyPrefix.length),
-            submittedAt: assessment.submittedAt || assessment.updatedAt,
-          });
-        }
-      } catch {
-        errors.push(key);
-      }
-    }
-  } catch {
-    return {
-      records: [],
-      error: 'ไม่สามารถอ่านประวัติการประเมินจากเบราว์เซอร์ได้',
-    };
-  }
-
-  records.sort((first, second) => new Date(second.submittedAt) - new Date(first.submittedAt));
-  return {
-    records,
-    error: errors.length ? 'มีข้อมูลประเมินบางรายการอ่านไม่ได้ จึงไม่แสดงรายการที่เสียหาย' : '',
-  };
-}
-
-function calculateAverage(assessment) {
-  const scores = [
-    ...(assessment.goals || []).map(({ score }) => Number(score)).filter(Boolean),
-    ...Object.values(assessment.ratings || {}).map(({ score }) => Number(score)).filter(Boolean),
-  ];
-  return scores.length
-    ? (scores.reduce((total, score) => total + score, 0) / scores.length).toFixed(2)
-    : '-';
-}
+import { calculateAssessmentScore, competencies } from '../assessment/assessmentUtils';
 
 function formatSubmissionDate(value) {
   const date = new Date(value);
@@ -68,7 +14,35 @@ function AssessmentHistory() {
   const navigate = useNavigate();
   const displayName = user?.name || user?.username || 'ผู้ใช้งาน';
   const employeeKey = user?.employeeId || user?.username || 'user';
-  const [history] = useState(() => loadAssessmentHistory(employeeKey));
+  const [history, setHistory] = useState({ records: [], error: '', loading: true });
+
+  useEffect(() => {
+    let isMounted = true;
+    fetch(`/api/assessments?employeeId=${encodeURIComponent(employeeKey)}&type=employee`)
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || 'ไม่สามารถโหลดประวัติการประเมินได้');
+        return data;
+      })
+      .then((data) => {
+        const records = (data.assessments || [])
+          .filter(({ status, assessment }) => (
+            status === 'submitted' || status === 'pending_hr' || status === 'approved' || assessment?.status === 'submitted'
+          ))
+          .map((submission) => ({
+            ...submission.assessment,
+            year: submission.year,
+            status: submission.status,
+            submittedAt: submission.submittedAt || submission.assessment?.submittedAt || submission.assessment?.updatedAt,
+          }))
+          .sort((first, second) => Number(second.year) - Number(first.year));
+        if (isMounted) setHistory({ records, error: '', loading: false });
+      })
+      .catch((requestError) => {
+        if (isMounted) setHistory({ records: [], error: requestError.message, loading: false });
+      });
+    return () => { isMounted = false; };
+  }, [employeeKey]);
 
   return (
     <main className="assessment-history-page">
@@ -94,16 +68,18 @@ function AssessmentHistory() {
 
         <div className="assessment-history-heading">
           <div>
-            <span className="assessment-eyebrow">รายการที่ส่งเรียบร้อยแล้ว</span>
+            <span className="assessment-eyebrow">แบบประเมินที่พนักงานส่งให้หัวหน้า</span>
             <h1>ประวัติการประเมิน</h1>
-            <p>ตรวจสอบแบบประเมินตนเองที่ส่งในแต่ละรอบ</p>
+            <p>ประวัติข้อมูลที่คุณกรอกและส่งให้หัวหน้า โดยไม่รวมผลสรุปจาก HR</p>
           </div>
           <span className="assessment-history-count">{history.records.length} รอบ</span>
         </div>
 
         {history.error && <p className="assessment-error" role="alert">{history.error}</p>}
 
-        {history.records.length === 0 ? (
+        {history.loading ? (
+          <section className="assessment-history-empty"><p>กำลังโหลดประวัติการประเมิน...</p></section>
+        ) : history.records.length === 0 ? (
           <section className="assessment-history-empty">
             <span aria-hidden="true">▤</span>
             <h2>ยังไม่มีประวัติการประเมิน</h2>
@@ -121,7 +97,13 @@ function AssessmentHistory() {
                     <span className="assessment-eyebrow">รอบประเมิน</span>
                     <h2>ปี {record.year}</h2>
                   </div>
-                  <span className="assessment-status submitted">ส่งแล้ว</span>
+                  <span className={`assessment-status ${record.status === 'approved' ? 'submitted' : ''}`}>
+                    {record.status === 'approved'
+                      ? 'HR ส่งผลกลับแล้ว'
+                      : record.status === 'pending_hr'
+                        ? 'รอ HR อนุมัติ'
+                        : 'ส่งแล้ว · รอตรวจสอบ'}
+                  </span>
                 </div>
 
                 <div className="assessment-history-summary">
@@ -131,7 +113,7 @@ function AssessmentHistory() {
                   </div>
                   <div>
                     <span>คะแนนเฉลี่ยที่ประเมินตนเอง</span>
-                    <strong>{calculateAverage(record)}{calculateAverage(record) === '-' ? '' : ' / 5'}</strong>
+                    <strong>{calculateAssessmentScore(record).overall}{calculateAssessmentScore(record).overall === '-' ? '' : ' / 5'}</strong>
                   </div>
                   <div>
                     <span>จำนวนเป้าหมาย</span>
@@ -154,7 +136,7 @@ function AssessmentHistory() {
 
                     <h3>ทักษะและพฤติกรรม</h3>
                     <div className="assessment-history-ratings">
-                      {Object.entries(competencyNames).map(([id, name]) => (
+                      {competencies.map(({ id, label: name }) => (
                         <div key={id}>
                           <span>{name}</span>
                           <strong>{record.ratings?.[id]?.score || '-'}/5</strong>
