@@ -185,9 +185,9 @@ function SelfAssessment() {
     <main className="self-assessment-page">
       <header className="home-topbar">
         <div className="home-brand">
-          <span className="home-brand-logo">CDG</span>
+          
           <div>
-            <strong>ระบบประเมินตนเอง</strong>
+            <strong>ระบบประเมินพนักงาน</strong>
             <small>Employee Performance System</small>
           </div>
         </div>

@@ -45,21 +45,38 @@ function HrHome() {
   }, []);
 
   const assessmentOverview = useMemo(() => {
-    const submittedSelf = selfSubmissions.filter(({ status, assessment, year }) => year === evaluationYear && (
-      status === 'submitted' || status === 'approved' || assessment?.status === 'submitted'
+    const employeeIds = new Set(
+      selfSubmissions
+        .filter(({ year, employeeId }) => year === evaluationYear && employeeId)
+        .map(({ employeeId }) => employeeId),
+    );
+    const submittedSelf = selfSubmissions.filter(({ year, employeeId, status, assessment }) => (
+      year === evaluationYear
+      && employeeIds.has(employeeId)
+      && (status === 'submitted' || status === 'manager_approved' || status === 'approved' || assessment?.status === 'submitted')
     ));
-    const managerSubmitted = managerReviews.filter(({ status, assessment, year }) => year === evaluationYear && (
-      status === 'submitted' || status === 'approved' || assessment?.status === 'submitted'
+    const managerSubmitted = managerReviews.filter(({ year, employeeId, status, assessment }) => (
+      year === evaluationYear
+      && employeeIds.has(employeeId)
+      && (status === 'submitted' || status === 'approved' || assessment?.status === 'submitted')
     ));
     const reviewedIds = new Set(managerSubmitted.map(({ employeeId }) => employeeId));
     const selfSubmittedIds = new Set(submittedSelf.map(({ employeeId }) => employeeId));
-    const readyForApproval = submittedSelf.filter(({ employeeId }) => reviewedIds.has(employeeId)).length;
-    const approved = submittedSelf.filter(({ status }) => status === 'approved').length;
+    const pendingHrIds = new Set(
+      submittedSelf
+        .filter(({ status }) => status === 'manager_approved')
+        .map(({ employeeId }) => employeeId),
+    );
+    const approvedIds = new Set(
+      submittedSelf
+        .filter(({ status }) => status === 'approved')
+        .map(({ employeeId }) => employeeId),
+    );
     return {
       submitted: selfSubmittedIds.size,
       waitingManager: Math.max(selfSubmittedIds.size - reviewedIds.size, 0),
-      readyForApproval,
-      approved,
+      readyForApproval: pendingHrIds.size,
+      approved: approvedIds.size,
       pendingSelf: Math.max(employeeCount - selfSubmittedIds.size, 0),
     };
   }, [employeeCount, managerReviews, selfSubmissions]);
@@ -114,7 +131,7 @@ function HrHome() {
             <button type="button" className="active">⌂ หน้าหลัก</button>
             <button type="button" onClick={() => navigate('/hr-employees')}>▣ จัดการพนักงาน</button>
             <button type="button" onClick={() => navigate('/hr-approvals')}>✓ อนุมัติผลประเมิน</button>
-            <button type="button" onClick={() => document.getElementById('hr-assessment-progress')?.scrollIntoView({ behavior: 'smooth' })}>▤ ความคืบหน้ารอบประเมิน</button>
+            
           </nav>
           <button type="button" className="logout-button" onClick={handleLogout}>
             ↪ ออกจากระบบ
@@ -158,8 +175,8 @@ function HrHome() {
                 <div className="hr-progress-track manager-progress"><span style={{ width: `${managerReviewPercent}%` }} /></div>
               </div>
               <div className="hr-progress-legend">
-                <span><i className="submitted-dot" /> อนุมัติแล้ว {assessmentOverview.approved}</span>
-                <span><i className="ready-dot" /> พร้อมเข้าสู่ขั้นอนุมัติ {assessmentOverview.readyForApproval}</span>
+                <span><i className="submitted-dot" /> HR อนุมัติแล้ว {assessmentOverview.approved}</span>
+                <span><i className="ready-dot" /> รอ HR อนุมัติ {assessmentOverview.readyForApproval}</span>
               </div>
             </section>
             <section className="home-panel hr-action-panel">
@@ -169,9 +186,6 @@ function HrHome() {
               </button>
               <button type="button" className="hr-action-card" onClick={() => navigate('/hr-approvals')}>
                 <span className="hr-action-icon">✓</span><span><strong>อนุมัติผลประเมิน</strong><small>ให้คะแนน เขียน feedback และส่งผลกลับพนักงาน</small></span><b aria-hidden="true">→</b>
-              </button>
-              <button type="button" className="hr-action-card" onClick={() => document.getElementById('hr-assessment-progress')?.scrollIntoView({ behavior: 'smooth' })}>
-                <span className="hr-action-icon hr-action-icon-blue">▤</span><span><strong>ติดตามรอบประเมิน</strong><small>ดูจำนวนที่ส่งแล้ว รอหัวหน้าประเมิน และอนุมัติแล้ว</small></span><b aria-hidden="true">→</b>
               </button>
             </section>
           </div>

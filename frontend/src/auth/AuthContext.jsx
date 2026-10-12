@@ -4,7 +4,18 @@ import { createContext, useContext, useState } from 'react';
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-    const [user, setUser] = useState(null);
+    const [user, setUser] = useState(() => {
+        const storedUser = localStorage.getItem('user');
+        if (!storedUser) return null;
+
+        try {
+            return JSON.parse(storedUser);
+        } catch {
+            localStorage.removeItem('user');
+            localStorage.removeItem('token');
+            return null;
+        }
+    });
 
     const login = async (username, password, role = 'employee') => {
         let response;
@@ -41,6 +52,7 @@ export function AuthProvider({ children }) {
         }
 
         localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
         setUser(data.user);
         return data.user;
     };
@@ -77,6 +89,7 @@ export function AuthProvider({ children }) {
 
     const logout = () => {
         localStorage.removeItem('token');
+        localStorage.removeItem('user');
         setUser(null);
     };
 

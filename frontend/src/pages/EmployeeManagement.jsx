@@ -38,7 +38,16 @@ function EmployeeManagement() {
     let isMounted = true;
     fetch('/api/employees')
       .then(async (response) => {
-        const data = await response.json();
+        const responseText = await response.text();
+        let data = {};
+        try {
+          data = responseText ? JSON.parse(responseText) : {};
+        } catch {
+          throw new Error(`เซิร์ฟเวอร์ตอบกลับไม่ถูกต้อง (HTTP ${response.status})`);
+        }
+        if (!response.ok && !responseText) {
+          throw new Error('ไม่สามารถเชื่อมต่อ backend ได้ กรุณาเปิด backend ที่พอร์ต 8080');
+        }
         if (!response.ok) throw new Error(data.message || 'ไม่สามารถโหลดรายชื่อพนักงานได้');
         return data;
       })
@@ -212,7 +221,6 @@ function EmployeeManagement() {
             <button type="button" onClick={() => navigate('/hr-home')}>⌂ หน้าหลัก</button>
             <button type="button" className="active">▣ จัดการพนักงาน</button>
             <button type="button" onClick={() => navigate('/hr-approvals')}>✓ อนุมัติผลประเมิน</button>
-            <button type="button" onClick={() => navigate('/hr-home#hr-assessment-progress')}>▤ ความคืบหน้ารอบประเมิน</button>
           </nav>
           <button type="button" className="logout-button" onClick={handleLogout}>↪ ออกจากระบบ</button>
         </aside>

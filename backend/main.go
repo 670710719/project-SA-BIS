@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -46,6 +47,10 @@ type AssessmentSubmission struct {
 	Status         string      `json:"status"`
 	AssessmentType string      `json:"assessmentType"`
 	Assessment     interface{} `json:"assessment"`
+	HRFinalScore   *float64    `json:"hrFinalScore,omitempty"`
+	HRGrade        string      `json:"hrGrade,omitempty"`
+	HRFeedback     string      `json:"hrFeedback,omitempty"`
+	HRReviewedAt   string      `json:"hrReviewedAt,omitempty"`
 }
 
 type Employee struct {
@@ -53,6 +58,9 @@ type Employee struct {
 	Name              string  `json:"name"`
 	Department        string  `json:"department"`
 	Position          string  `json:"position"`
+	Email             string  `json:"email"`
+	Phone             string  `json:"phone"`
+	AccountUsername   string  `json:"accountUsername"`
 	Salary            float64 `json:"salary"`
 	Grade             string  `json:"grade"`
 	AdjustmentPercent float64 `json:"adjustmentPercent"`
@@ -82,6 +90,34 @@ var employees = []Employee{
 	{ID: "EMP020", Name: "ศิริพร ทองดี", Department: "การเงิน", Position: "ผู้ตรวจสอบบัญชี", Salary: 42000, Grade: "A", AdjustmentPercent: 6, EvaluationStatus: "รอประเมิน"},
 }
 
+type EmployeeRequest struct {
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Department string `json:"department"`
+	Position   string `json:"position"`
+	Email      string `json:"email"`
+	Phone      string `json:"phone"`
+	Password   string `json:"password"`
+}
+
+type HRApprovalRequest struct {
+	Score    float64 `json:"score"`
+	Feedback string  `json:"feedback"`
+}
+
+func gradeFromScore(score float64) string {
+	switch {
+	case score >= 4.5:
+		return "A"
+	case score >= 3.5:
+		return "B"
+	case score >= 2.5:
+		return "C"
+	default:
+		return "D"
+	}
+}
+
 func main() {
 	r := gin.Default()
 
@@ -101,7 +137,13 @@ func main() {
 			Role:     "employee",
 		}
 	}
+	for index := range employees {
+		if fields := strings.Fields(employees[index].Name); len(fields) > 0 {
+			employees[index].AccountUsername = fields[0]
+		}
+	}
 	var usersMu sync.RWMutex
+	var employeesMu sync.RWMutex
 	submissions := make(map[string]AssessmentSubmission)
 	var submissionsMu sync.RWMutex
 
@@ -110,10 +152,120 @@ func main() {
 	})
 
 	r.GET("/api/employees", func(c *gin.Context) {
+		employeesMu.RLock()
+		defer employeesMu.RUnlock()
 		c.JSON(http.StatusOK, gin.H{
 			"count":     len(employees),
 			"employees": employees,
 		})
+	})
+
+	r.POST("/api/employees", func(c *gin.Context) {
+		var req EmployeeRequest
+		if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.ID) == "" ||
+			strings.TrimSpace(req.Name) == "" || strings.TrimSpace(req.Department) == "" ||
+			strings.TrimSpace(req.Position) == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "กรุณากรอกข้อมูลพนักงานให้ครบถ้วน"})
+			return
+		}
+		req.ID = strings.ToUpper(strings.TrimSpace(req.ID))
+		if req.Password == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "กรุณากำหนดรหัสผ่านสำหรับพนักงาน"})
+			return
+		}
+
+		employeesMu.Lock()
+		for _, employee := range employees {
+			if employee.ID == req.ID {
+				employeesMu.Unlock()
+				c.JSON(http.StatusConflict, gin.H{"message": "รหัสพนักงานนี้มีอยู่แล้ว"})
+				return
+			}
+		}
+		employee := Employee{
+			ID: req.ID, Name: strings.TrimSpace(req.Name), Department: strings.TrimSpace(req.Department),
+			Position: strings.TrimSpace(req.Position), Email: strings.TrimSpace(req.Email),
+			Phone: strings.TrimSpace(req.Phone), AccountUsername: req.ID, EvaluationStatus: "รอประเมิน",
+		}
+		employees = append(employees, employee)
+		employeesMu.Unlock()
+
+		usersMu.Lock()
+		accounts[req.ID] = Account{Password: req.Password, Role: "employee"}
+		usersMu.Unlock()
+		c.JSON(http.StatusCreated, gin.H{"message": "ลงทะเบียนพนักงานเรียบร้อยแล้ว", "employee": employee})
+	})
+
+	r.PUT("/api/employees/:id", func(c *gin.Context) {
+		var req EmployeeRequest
+		if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Name) == "" ||
+			strings.TrimSpace(req.Department) == "" || strings.TrimSpace(req.Position) == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "กรุณากรอกข้อมูลพนักงานให้ครบถ้วน"})
+			return
+		}
+		id := strings.ToUpper(strings.TrimSpace(c.Param("id")))
+		employeesMu.Lock()
+		index := -1
+		for i := range employees {
+			if employees[i].ID == id {
+				index = i
+				break
+			}
+		}
+		if index < 0 {
+			employeesMu.Unlock()
+			c.JSON(http.StatusNotFound, gin.H{"message": "ไม่พบพนักงานที่ต้องการแก้ไข"})
+			return
+		}
+		employee := &employees[index]
+		employee.Name, employee.Department, employee.Position = strings.TrimSpace(req.Name), strings.TrimSpace(req.Department), strings.TrimSpace(req.Position)
+		employee.Email, employee.Phone = strings.TrimSpace(req.Email), strings.TrimSpace(req.Phone)
+		updated := *employee
+		employeesMu.Unlock()
+
+		if req.Password != "" {
+			usersMu.Lock()
+			account, exists := accounts[updated.AccountUsername]
+			if !exists {
+				account = Account{Role: "employee"}
+			}
+			account.Password = req.Password
+			accounts[updated.AccountUsername] = account
+			usersMu.Unlock()
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "บันทึกข้อมูลพนักงานเรียบร้อยแล้ว", "employee": updated})
+	})
+
+	r.DELETE("/api/employees/:id", func(c *gin.Context) {
+		id := strings.ToUpper(strings.TrimSpace(c.Param("id")))
+		employeesMu.Lock()
+		index := -1
+		var username string
+		for i := range employees {
+			if employees[i].ID == id {
+				index, username = i, employees[i].AccountUsername
+				break
+			}
+		}
+		if index < 0 {
+			employeesMu.Unlock()
+			c.JSON(http.StatusNotFound, gin.H{"message": "ไม่พบพนักงานที่ต้องการลบ"})
+			return
+		}
+		employees = append(employees[:index], employees[index+1:]...)
+		employeesMu.Unlock()
+		usersMu.Lock()
+		delete(accounts, username)
+		delete(accounts, id)
+		usersMu.Unlock()
+		submissionsMu.Lock()
+		for submissionID, submission := range submissions {
+			if submission.EmployeeID == id {
+				delete(submissions, submissionID)
+			}
+		}
+		submissionsMu.Unlock()
+		c.JSON(http.StatusOK, gin.H{"message": "ลบพนักงานและข้อมูลที่เกี่ยวข้องเรียบร้อยแล้ว"})
 	})
 
 	r.GET("/api/assessments", func(c *gin.Context) {
@@ -126,6 +278,9 @@ func main() {
 			if (employeeID == "" || submission.EmployeeID == employeeID) &&
 				(year == "" || submission.Year == year) &&
 				(assessmentType == "" || submission.AssessmentType == assessmentType) {
+				if submission.Status == "approved" && submission.HRGrade == "" && submission.HRFinalScore != nil {
+					submission.HRGrade = gradeFromScore(*submission.HRFinalScore)
+				}
 				result = append(result, submission)
 			}
 		}
@@ -158,6 +313,7 @@ func main() {
 		submissionsMu.Lock()
 		submissions[submission.ID] = submission
 		submissionsMu.Unlock()
+		employeesMu.Lock()
 		for index := range employees {
 			if employees[index].ID == submission.EmployeeID &&
 				submission.AssessmentType == "employee" &&
@@ -166,6 +322,7 @@ func main() {
 				break
 			}
 		}
+		employeesMu.Unlock()
 		c.JSON(http.StatusCreated, gin.H{"message": "ส่งแบบประเมินให้หัวหน้าเรียบร้อยแล้ว", "submission": submission})
 	})
 
@@ -188,8 +345,21 @@ func main() {
 		submissionsMu.Lock()
 		submission, exists := submissions[c.Param("id")]
 		if exists {
-			submission.Status = "approved"
-			submissions[submission.ID] = submission
+			if submission.AssessmentType == "manager" {
+				for id, employeeSubmission := range submissions {
+					if employeeSubmission.EmployeeID == submission.EmployeeID &&
+						employeeSubmission.Year == submission.Year &&
+						employeeSubmission.AssessmentType == "employee" {
+						employeeSubmission.Status = "manager_approved"
+						submissions[id] = employeeSubmission
+						submission = employeeSubmission
+						break
+					}
+				}
+			} else {
+				submission.Status = "manager_approved"
+				submissions[submission.ID] = submission
+			}
 		}
 		submissionsMu.Unlock()
 
@@ -197,13 +367,64 @@ func main() {
 			c.JSON(http.StatusNotFound, gin.H{"message": "ไม่พบแบบประเมินที่ต้องการอนุมัติ"})
 			return
 		}
+		employeesMu.Lock()
 		for index := range employees {
 			if employees[index].ID == submission.EmployeeID && submission.AssessmentType == "employee" {
-				employees[index].EvaluationStatus = "อนุมัติแล้ว"
+				employees[index].EvaluationStatus = "รออนุมัติ"
 				break
 			}
 		}
+		employeesMu.Unlock()
 		c.JSON(http.StatusOK, gin.H{"message": "อนุมัติผลการประเมินเรียบร้อยแล้ว", "submission": submission})
+	})
+
+	r.GET("/api/hr/assessments", func(c *gin.Context) {
+		submissionsMu.RLock()
+		result := make([]AssessmentSubmission, 0)
+		for _, submission := range submissions {
+			if submission.AssessmentType == "employee" && submission.Status == "manager_approved" {
+				result = append(result, submission)
+			}
+		}
+		submissionsMu.RUnlock()
+		c.JSON(http.StatusOK, gin.H{"count": len(result), "assessments": result})
+	})
+
+	r.POST("/api/hr/assessments/:id/approve", func(c *gin.Context) {
+		var req HRApprovalRequest
+		if err := c.ShouldBindJSON(&req); err != nil || req.Score < 1 || req.Score > 5 || strings.TrimSpace(req.Feedback) == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "กรุณาให้คะแนนระหว่าง 1 ถึง 5 และเขียน feedback ก่อนอนุมัติ"})
+			return
+		}
+		submissionsMu.Lock()
+		submission, exists := submissions[c.Param("id")]
+		if exists && submission.Status != "manager_approved" {
+			exists = false
+		}
+		if exists {
+			now := time.Now().Format(time.RFC3339)
+			submission.Status = "approved"
+			submission.HRFinalScore = &req.Score
+			submission.HRGrade = gradeFromScore(req.Score)
+			submission.HRFeedback = strings.TrimSpace(req.Feedback)
+			submission.HRReviewedAt = now
+			submissions[submission.ID] = submission
+		}
+		submissionsMu.Unlock()
+		if !exists {
+			c.JSON(http.StatusNotFound, gin.H{"message": "ไม่พบผลประเมินที่รออนุมัติจาก HR"})
+			return
+		}
+		employeesMu.Lock()
+		for index := range employees {
+			if employees[index].ID == submission.EmployeeID {
+				employees[index].EvaluationStatus = "อนุมัติแล้ว"
+				employees[index].Grade = submission.HRGrade
+				break
+			}
+		}
+		employeesMu.Unlock()
+		c.JSON(http.StatusOK, gin.H{"message": "อนุมัติผลการประเมินและส่ง feedback ให้พนักงานเรียบร้อยแล้ว", "submission": submission})
 	})
 
 	r.POST("/api/auth/login", func(c *gin.Context) {

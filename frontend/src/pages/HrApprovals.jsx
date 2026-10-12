@@ -4,6 +4,13 @@ import ThemeToggle from '../components/ThemeToggle';
 import { useAuth } from '../auth/AuthContext';
 import { calculateAssessmentScore, evaluationYear } from '../assessment/assessmentUtils';
 
+function gradeFromScore(score) {
+  if (score >= 4.5) return 'A';
+  if (score >= 3.5) return 'B';
+  if (score >= 2.5) return 'C';
+  return 'D';
+}
+
 async function readJsonResponse(response) {
   const body = await response.text();
   try {
@@ -133,7 +140,6 @@ function HrApprovals() {
             <button type="button" onClick={() => navigate('/hr-home')}>⌂ หน้าหลัก</button>
             <button type="button" onClick={() => navigate('/hr-employees')}>▣ จัดการพนักงาน</button>
             <button type="button" className="active">✓ อนุมัติผลประเมิน</button>
-            <button type="button" onClick={() => navigate('/hr-home#hr-assessment-progress')}>▤ ความคืบหน้ารอบประเมิน</button>
           </nav>
           <button type="button" className="logout-button" onClick={handleLogout}>↪ ออกจากระบบ</button>
         </aside>
@@ -205,6 +211,13 @@ function HrApprovals() {
                           required
                         />
                       </label>
+                      <div className="assessment-grade-preview">
+                        <span>เกรดที่จะส่งให้พนักงาน</span>
+                        <strong>{Number.isFinite(Number(reviews[submission.id]?.score)) && reviews[submission.id]?.score !== ''
+                          ? gradeFromScore(Number(reviews[submission.id].score))
+                          : '-'}</strong>
+                        <small>A 4.50–5.00 · B 3.50–4.49 · C 2.50–3.49 · D 1.00–2.49</small>
+                      </div>
                       <label className="assessment-field">
                         <span>Feedback สำหรับพนักงาน</span>
                         <textarea

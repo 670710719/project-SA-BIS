@@ -28,9 +28,9 @@ function Salary() {
       {/* ส่วนหัวด้านบน ใช้ layout เดียวกับหน้า Home */}
       <header className="home-topbar">
         <div className="home-brand">
-          <span className="home-brand-logo">CDG</span>
+          
           <div>
-            <strong>ระบบประเมินตนเอง</strong>
+            <strong>ระบบประเมินพนักงาน</strong>
             <small>Employee Performance System</small>
           </div>
         </div>

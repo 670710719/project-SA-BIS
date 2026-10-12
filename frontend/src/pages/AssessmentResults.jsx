@@ -9,6 +9,14 @@ function formatDate(value) {
   return Number.isNaN(date.getTime()) ? 'ไม่พบวันที่' : date.toLocaleString('th-TH');
 }
 
+function gradeFromScore(score) {
+  if (score >= 4.5) return 'A';
+  if (score >= 3.5) return 'B';
+  if (score >= 2.5) return 'C';
+  if (score >= 1) return 'D';
+  return '-';
+}
+
 function AssessmentResults() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -40,7 +48,6 @@ function AssessmentResults() {
     <main className="assessment-history-page">
       <header className="home-topbar">
         <div className="home-brand">
-          <span className="home-brand-logo">CDG</span>
           <div>
             <strong>ระบบประเมินพนักงาน</strong>
             <small>Employee Performance System</small>
@@ -81,6 +88,7 @@ function AssessmentResults() {
           <div className="assessment-history-list">
             {results.records.map((record) => {
               const selfScore = calculateAssessmentScore(record.assessment).overall;
+              const resultGrade = record.hrGrade || gradeFromScore(Number(record.hrFinalScore));
               return (
                 <article className="assessment-history-card" key={record.id}>
                   <div className="assessment-history-card-heading">
@@ -95,6 +103,10 @@ function AssessmentResults() {
                     <div>
                       <span>คะแนนสรุปจาก HR</span>
                       <strong>{record.hrFinalScore ?? '-'}{record.hrFinalScore == null ? '' : ' / 5'}</strong>
+                    </div>
+                    <div>
+                      <span>เกรดผลการประเมิน</span>
+                      <strong className="assessment-result-grade">{resultGrade}</strong>
                     </div>
                     <div>
                       <span>วันที่ HR อนุมัติ</span>

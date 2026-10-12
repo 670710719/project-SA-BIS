@@ -12,6 +12,7 @@ function HomeMenu() {
   const [showAssessmentAlert, setShowAssessmentAlert] = useState(true);
   const [assessmentRecord, setAssessmentRecord] = useState(null);
   const [assessmentError, setAssessmentError] = useState('');
+  const [isAssessmentLoading, setIsAssessmentLoading] = useState(true);
   const displayName = user?.name || user?.username || 'ผู้ใช้งาน';
   const avatar = displayName.charAt(0);
   const hasSubmittedAssessment = assessmentRecord?.assessment?.status === 'submitted';
@@ -28,6 +29,9 @@ function HomeMenu() {
       })
       .catch((error) => {
         setAssessmentError(error.message);
+      })
+      .finally(() => {
+        setIsAssessmentLoading(false);
       });
   }, [user?.employeeId, user?.username]);
 
@@ -170,14 +174,14 @@ function HomeMenu() {
             </section>
             <section className="home-panel">
               <div className="home-panel-title"><h2>ผลต่อการขึ้นเงินเดือน</h2><Link to="/salary">ดูรายละเอียด</Link></div>
-              <div className="home-request"><span>เกรด A · ผลงานโดดเด่น</span><small>ปรับเงินเดือนแนะนำ 6.00%</small><div><button>ดูเกณฑ์</button></div></div>
-              <div className="home-request"><span>เกรด B · ผลงานดีตามคาดหวัง</span><small>ปรับเงินเดือนแนะนำ 3.00%</small><div><button>ดูเกณฑ์</button></div></div>
+              <div className="home-request"><span>เกรด A · ผลงานโดดเด่น</span><small>ปรับเงินเดือนแนะนำ 6.00%</small></div>
+              <div className="home-request"><span>เกรด B · ผลงานดีตามคาดหวัง</span><small>ปรับเงินเดือนแนะนำ 3.00%</small></div>
             </section>
           </div>
         </section>
       </div>
 
-      {showAssessmentAlert && !hasSubmittedAssessment && (
+      {showAssessmentAlert && !isAssessmentLoading && !hasSubmittedAssessment && (
         <div className="assessment-alert-backdrop">
           <section
             className="assessment-alert"

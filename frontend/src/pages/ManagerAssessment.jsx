@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
@@ -44,6 +44,8 @@ function ManagerAssessment() {
   const [submissions, setSubmissions] = useState([]);
   const [selfSubmissions, setSelfSubmissions] = useState([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
+  const [isEmployeeMenuOpen, setIsEmployeeMenuOpen] = useState(false);
+  const employeeMenuRef = useRef(null);
   const [assessment, setAssessment] = useState(createAssessment);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -92,6 +94,17 @@ function ManagerAssessment() {
     return () => { isMounted = false; };
   }, [requestedEmployeeId, user?.username]);
 
+  useEffect(() => {
+    function closeEmployeeMenu(event) {
+      if (!employeeMenuRef.current?.contains(event.target)) {
+        setIsEmployeeMenuOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', closeEmployeeMenu);
+    return () => document.removeEventListener('mousedown', closeEmployeeMenu);
+  }, []);
+
   const selectedEmployee = employees.find(({ id }) => id === selectedEmployeeId);
   const existingSubmission = submissions.find(({ employeeId, year }) => (
     employeeId === selectedEmployeeId && year === evaluationYear
@@ -117,6 +130,7 @@ function ManagerAssessment() {
     setSelectedEmployeeId(employeeId);
     setAssessment(existing?.assessment ? { ...createAssessment(), ...existing.assessment } : createAssessment());
     setMessage('');
+    setIsEmployeeMenuOpen(false);
   }
 
   function updateGoal(goalId, field, value) {
@@ -251,9 +265,36 @@ function ManagerAssessment() {
             <section className="assessment-employee-card" aria-label="เลือกพนักงาน">
               <label className="assessment-field">
                 <span>พนักงานที่ต้องการประเมิน</span>
-                <select value={selectedEmployeeId} onChange={(event) => selectEmployee(event.target.value)} disabled={saving}>
-                  {employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.id} · {employee.name}</option>)}
-                </select>
+                <div className="assessment-employee-picker" ref={employeeMenuRef}>
+                  <button
+                    type="button"
+                    className="assessment-employee-picker-trigger"
+                    aria-haspopup="listbox"
+                    aria-expanded={isEmployeeMenuOpen}
+                    onClick={() => setIsEmployeeMenuOpen((isOpen) => !isOpen)}
+                    disabled={saving}
+                  >
+                    <span>{selectedEmployee ? `${selectedEmployee.id} · ${selectedEmployee.name}` : 'เลือกพนักงาน'}</span>
+                    <span className={`assessment-employee-picker-arrow ${isEmployeeMenuOpen ? 'open' : ''}`} aria-hidden="true" />
+                  </button>
+                  {isEmployeeMenuOpen && (
+                    <div className="assessment-employee-picker-menu" role="listbox" aria-label="รายชื่อพนักงาน">
+                      {employees.map((employee) => (
+                        <button
+                          type="button"
+                          role="option"
+                          aria-selected={employee.id === selectedEmployeeId}
+                          className={`assessment-employee-picker-option ${employee.id === selectedEmployeeId ? 'selected' : ''}`}
+                          key={employee.id}
+                          onClick={() => selectEmployee(employee.id)}
+                        >
+                          <strong>{employee.id}</strong>
+                          <span>{employee.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </label>
               <div><span>ตำแหน่ง</span><strong>{selectedEmployee?.position || '-'}</strong></div>
               <div><span>รอบประเมิน</span><strong>ปี {evaluationYear}</strong></div>
