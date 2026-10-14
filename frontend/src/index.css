@@ -313,8 +313,8 @@ main:not(.login-page) {
 }
 
 .self-assessment-page {
-  height: 100vh;
-  min-height: 100vh;
+  height: calc(100vh / 1.12);
+  min-height: calc(100vh / 1.12);
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior-y: contain;

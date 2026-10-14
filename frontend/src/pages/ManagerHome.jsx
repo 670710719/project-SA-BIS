@@ -138,7 +138,7 @@ function ManagerHome() {
           </button>
           <nav className="home-navigation" aria-label="เมนูหัวหน้าแผนก">
             <button type="button" className="active">⌂ หน้าหลัก</button>
-            <button type="button" onClick={() => navigate('/manager-assessment')}>▣ ประเมินลูกทีม</button>
+            <button type="button" onClick={() => navigate('/manager-assessment')}>▣ ประเมินพนักงาน</button>
             <button type="button" onClick={() => navigate('/manager-approvals')}>✓ อนุมัติผลการประเมิน</button>
             <button type="button" onClick={() => navigate('/manager-team-report')}>▤ รายงานความคืบหน้าการประเมิน</button>
           </nav>

@@ -92,7 +92,7 @@ function ManagerTeamReport() {
           </button>
           <nav className="home-navigation" aria-label="เมนูหัวหน้าแผนก">
             <button type="button" onClick={() => navigate('/manager-home')}>⌂ หน้าหลัก</button>
-            <button type="button" onClick={() => navigate('/manager-assessment')}>▣ ประเมินลูกทีม</button>
+            <button type="button" onClick={() => navigate('/manager-assessment')}>▣ ประเมินพนักงาน</button>
             <button type="button" onClick={() => navigate('/manager-approvals')}>✓ อนุมัติผลการประเมิน</button>
             <button type="button" className="active">▤ รายงานความคืบหน้าการประเมิน</button>
           </nav>

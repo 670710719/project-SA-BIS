@@ -182,7 +182,7 @@ function ManagerAssessment() {
         ...current.filter(({ employeeId }) => employeeId !== selectedEmployee.id),
         data.submission,
       ]);
-      setMessage(status === 'submitted' ? 'ส่งผลการประเมินลูกทีมเรียบร้อยแล้ว' : 'บันทึกร่างเรียบร้อยแล้ว');
+      setMessage(status === 'submitted' ? 'ส่งผลการประเมินพนักงานเรียบร้อยแล้ว' : 'บันทึกร่างเรียบร้อยแล้ว');
       setValidationIssues([]);
       setIsConfirmationOpen(false);
 
@@ -235,7 +235,7 @@ function ManagerAssessment() {
         <div className="assessment-page-heading">
           <div>
             <span className="assessment-eyebrow">หัวหน้าแผนก</span>
-            <h1>ประเมินลูกทีม</h1>
+            <h1>ประเมินพนักงาน</h1>
             <p>หัวหน้าประเมินแยกจากคะแนนตนเอง โดยอ้างอิงเป้าหมาย ผลลัพธ์ และพฤติกรรมที่สังเกตได้</p>
           </div>
           <span className={`assessment-status ${isSubmitted ? 'submitted' : ''}`}>
