@@ -2057,6 +2057,7 @@ main:not(.login-page) {
 
 .team-report-table-panel {
   margin-top: 16px;
+  margin-bottom: 40px;
 }
 
 .team-report-table-panel .home-panel-title > span {

@@ -1,5 +1,27 @@
 # React + Vite
 
+## Deploy to Vercel
+
+When importing this repository into Vercel, set **Root Directory** to
+`frontend`. Vercel will then use the following settings:
+
+- Framework preset: `Vite`
+- Build command: `npm run build`
+- Output directory: `dist`
+- Install command: `npm ci`
+
+The included [`vercel.json`](./vercel.json) keeps client-side React Router
+routes working after a page refresh.
+
+The Go API in `backend/` must be deployed separately. The Vite development
+proxy only forwards `/api` requests to `http://localhost:8080` locally.
+
+The backend uses Supabase PostgreSQL when the Vercel backend project has a
+`DATABASE_URL` environment variable. On first startup it creates the
+`employees`, `accounts`, and `assessments` tables and seeds the sample
+employees and accounts. Keep `DATABASE_URL` in Vercel Environment Variables;
+never commit it to the repository.
+
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
 Currently, two official plugins are available:

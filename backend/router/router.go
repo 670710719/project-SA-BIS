@@ -1,9 +1,9 @@
 // backend/main.go
-package main
+package router
 
 import (
+	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -118,7 +118,7 @@ func gradeFromScore(score float64) string {
 	}
 }
 
-func main() {
+func NewRouter() *gin.Engine {
 	r := gin.Default()
 
 	r.Use(cors.Default())
@@ -142,10 +142,33 @@ func main() {
 			employees[index].AccountUsername = fields[0]
 		}
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	db, err := newDatabase(ctx)
+	if err != nil {
+		panic(err)
+	}
 	var usersMu sync.RWMutex
 	var employeesMu sync.RWMutex
 	submissions := make(map[string]AssessmentSubmission)
 	var submissionsMu sync.RWMutex
+	if db != nil {
+		if err := db.seed(ctx, employees, accounts); err != nil {
+			panic(err)
+		}
+		employees, err = db.loadEmployees(ctx)
+		if err != nil {
+			panic(err)
+		}
+		accounts, err = db.loadAccounts(ctx)
+		if err != nil {
+			panic(err)
+		}
+		submissions, err = db.loadAssessments(ctx)
+		if err != nil {
+			panic(err)
+		}
+	}
 
 	r.GET("/api/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
@@ -193,6 +216,16 @@ func main() {
 		usersMu.Lock()
 		accounts[req.ID] = Account{Password: req.Password, Role: "employee"}
 		usersMu.Unlock()
+		if db != nil {
+			if err := db.saveEmployee(c, employee); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"message": "บันทึกข้อมูลพนักงานลงฐานข้อมูลไม่สำเร็จ"})
+				return
+			}
+			if err := db.saveAccount(c, req.ID, Account{Password: req.Password, Role: "employee"}); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"message": "บันทึกบัญชีพนักงานลงฐานข้อมูลไม่สำเร็จ"})
+				return
+			}
+		}
 		c.JSON(http.StatusCreated, gin.H{"message": "ลงทะเบียนพนักงานเรียบร้อยแล้ว", "employee": employee})
 	})
 
@@ -233,6 +266,18 @@ func main() {
 			accounts[updated.AccountUsername] = account
 			usersMu.Unlock()
 		}
+		if db != nil {
+			if err := db.saveEmployee(c, updated); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"message": "บันทึกข้อมูลพนักงานลงฐานข้อมูลไม่สำเร็จ"})
+				return
+			}
+			if req.Password != "" {
+				if err := db.saveAccount(c, updated.AccountUsername, accounts[updated.AccountUsername]); err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"message": "บันทึกบัญชีพนักงานลงฐานข้อมูลไม่สำเร็จ"})
+					return
+				}
+			}
+		}
 		c.JSON(http.StatusOK, gin.H{"message": "บันทึกข้อมูลพนักงานเรียบร้อยแล้ว", "employee": updated})
 	})
 
@@ -265,6 +310,16 @@ func main() {
 			}
 		}
 		submissionsMu.Unlock()
+		if db != nil {
+			if err := db.deleteEmployee(c, id, username); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"message": "ลบข้อมูลพนักงานจากฐานข้อมูลไม่สำเร็จ"})
+				return
+			}
+			if err := db.deleteAssessmentsForEmployee(c, id); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"message": "ลบแบบประเมินจากฐานข้อมูลไม่สำเร็จ"})
+				return
+			}
+		}
 		c.JSON(http.StatusOK, gin.H{"message": "ลบพนักงานและข้อมูลที่เกี่ยวข้องเรียบร้อยแล้ว"})
 	})
 
@@ -313,6 +368,12 @@ func main() {
 		submissionsMu.Lock()
 		submissions[submission.ID] = submission
 		submissionsMu.Unlock()
+		if db != nil {
+			if err := db.saveAssessment(c, submission); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"message": "บันทึกแบบประเมินลงฐานข้อมูลไม่สำเร็จ"})
+				return
+			}
+		}
 		employeesMu.Lock()
 		for index := range employees {
 			if employees[index].ID == submission.EmployeeID &&
@@ -323,6 +384,20 @@ func main() {
 			}
 		}
 		employeesMu.Unlock()
+		if db != nil && submission.AssessmentType == "employee" && submission.Status == "submitted" {
+			employeesMu.RLock()
+			for _, employee := range employees {
+				if employee.ID == submission.EmployeeID {
+					if err := db.saveEmployee(c, employee); err != nil {
+						employeesMu.RUnlock()
+						c.JSON(http.StatusInternalServerError, gin.H{"message": "บันทึกสถานะพนักงานลงฐานข้อมูลไม่สำเร็จ"})
+						return
+					}
+					break
+				}
+			}
+			employeesMu.RUnlock()
+		}
 		c.JSON(http.StatusCreated, gin.H{"message": "ส่งแบบประเมินให้หัวหน้าเรียบร้อยแล้ว", "submission": submission})
 	})
 
@@ -375,6 +450,24 @@ func main() {
 			}
 		}
 		employeesMu.Unlock()
+		if db != nil {
+			if err := db.saveAssessment(c, submission); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"message": "บันทึกผลอนุมัติลงฐานข้อมูลไม่สำเร็จ"})
+				return
+			}
+			employeesMu.RLock()
+			for _, employee := range employees {
+				if employee.ID == submission.EmployeeID {
+					if err := db.saveEmployee(c, employee); err != nil {
+						employeesMu.RUnlock()
+						c.JSON(http.StatusInternalServerError, gin.H{"message": "บันทึกสถานะพนักงานลงฐานข้อมูลไม่สำเร็จ"})
+						return
+					}
+					break
+				}
+			}
+			employeesMu.RUnlock()
+		}
 		c.JSON(http.StatusOK, gin.H{"message": "อนุมัติผลการประเมินเรียบร้อยแล้ว", "submission": submission})
 	})
 
@@ -424,6 +517,24 @@ func main() {
 			}
 		}
 		employeesMu.Unlock()
+		if db != nil {
+			if err := db.saveAssessment(c, submission); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"message": "บันทึกผลอนุมัติจาก HR ลงฐานข้อมูลไม่สำเร็จ"})
+				return
+			}
+			employeesMu.RLock()
+			for _, employee := range employees {
+				if employee.ID == submission.EmployeeID {
+					if err := db.saveEmployee(c, employee); err != nil {
+						employeesMu.RUnlock()
+						c.JSON(http.StatusInternalServerError, gin.H{"message": "บันทึกข้อมูลพนักงานลงฐานข้อมูลไม่สำเร็จ"})
+						return
+					}
+					break
+				}
+			}
+			employeesMu.RUnlock()
+		}
 		c.JSON(http.StatusOK, gin.H{"message": "อนุมัติผลการประเมินและส่ง feedback ให้พนักงานเรียบร้อยแล้ว", "submission": submission})
 	})
 
@@ -495,10 +606,14 @@ func main() {
 		}
 
 		accounts[req.Username] = Account{Password: req.Password, Role: "employee"}
+		if db != nil {
+			if err := db.saveAccount(c, req.Username, accounts[req.Username]); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"message": "บันทึกบัญชีลงฐานข้อมูลไม่สำเร็จ"})
+				return
+			}
+		}
 		c.JSON(http.StatusCreated, gin.H{"message": "สมัครสมาชิกสำเร็จ"})
 	})
 
-	if err := r.Run(":8080"); err != nil {
-		log.Fatal(err)
-	}
+	return r
 }
